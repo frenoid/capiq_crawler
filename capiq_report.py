@@ -1,19 +1,19 @@
 # Automated downloading of customer-supplier relations from Capital IQ
-from sys import argv
-from sys import exit
+from sys import argv, exit
 from openpyxl import load_workbook
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import TimeoutException 
+from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import UnexpectedAlertPresentException 
 from selenium.common.exceptions import NoAlertPresentException 
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from capIqLibrary import getCompanyNamesInfo, getTrueName
 from time import sleep, time, localtime, strftime
 from os import chdir, remove, rename, listdir
 from shutil import copy
@@ -36,52 +36,22 @@ def getReportType(download_type):
 def getFirmList(ids_file):
 	
 	# Read the file of firm IDs
-	firm_list = []
+	company_names_info = {}
 	ids_file = argv[1]
 
-	# Reading a text file
-	if ids_file[-4:] == ".txt":
-		print "Step 1: Reading Text ID file %s" % (ids_file)
-		try:
-			with open(ids_file, "r") as f:
-				firm_list = f.readlines()
-			if len(firm_list) > 0:
-				print str(len(firm_list)) +\
-			      	      " firms have been loaded from " +\
-	              	      	      str(ids_file)
-			else:
-				exit("Terminate: No IDs were read")
-		except IOError:
-			exit("Exception: IDs file not found")
-
-		return firm_list
-
 	# Reading an excel file
-	elif ids_file[-4:] == "xlsx" or ids_file[-4] == ".xls":
-		print "Step 1: Reading Excel file %s" % (ids_file)
-		work_sheet  = load_workbook(ids_file).\
-			      get_sheet_by_name("Download list")
+	if ids_file[-4:] == "xlsx":
+		company_names_info = getCompanyNamesInfo(ids_file)
 
-		# Find the column with Firm IDs
-		for col_no in range(1, 50):
-			if work_sheet.cell(row=1, column=col_no).value\
-		   	== "excelcompanyid":
-				id_col = col_no
-				print "IDs in excel column %d" % (id_col)
-				break
+	elif ids_file[-4:] == ".txt" or ids_file[-4:] == ".xls":
+		exit(".txt and .xls are no longer supported")
 
-		# Read rows until blank row
-		for row_no in range(2, 1000000):
-			if work_sheet.cell(row=row_no, column=id_col).value != None:
-				id_read = work_sheet.cell(row=row_no,\
-						          column=id_col).value
-				id_read = id_read + "\n"
-				firm_list.append(id_read)
-			else:
-				break
+	else:
+		print "%s is an unknown file format" % (ids_file)
+		exit()
 
-		print "%d Firms loaded from %s" % (len(firm_list), ids_file)
-		return firm_list
+
+	return company_names_info
 
 
 def getDownloadList(firm_list, list_of_args):
@@ -218,7 +188,7 @@ def addFirms(driver, batch_list):
 		     EC.presence_of_element_located((\
 		     By.CLASS_NAME, "es-searchinput")))
 
-	search_string = "".join(batch_list)
+	search_string = "\n".join(batch_list)
 	pyperclip.copy(search_string)
 
 	search_box.click()
@@ -294,6 +264,7 @@ def generateReport(driver, batch_no, min_wait_time):
 
 		success = True
 
+	# 30 secs exceeded
 	except TimeoutException:
 
 		# Check for failure
@@ -333,15 +304,25 @@ def getDownloadName(report_type, valid_firm_count):
 	return download_name
 
 
-def renameBatchFile(download_files, download_name):
+def renameBatchFile(download_files, download_name, company_names_info):
 	rename_success = False
 
-	# Rename batch file numerically
 	for index in range(len(downloaded_files)):
 		actual_name = str(downloaded_files[index])
 
 
-		### First check if filename matches downloaded filename 
+		## First method of renaming the file
+		# Test the file contents against company_names_info
+		if actual_name == download_name:
+			true_name = getTrueName(actual_name, company_names_info)
+			if true_name is not "Invalid":
+				rename(actual_name, true_name)
+				print "Using firm name, File renamed to %s" % (true_name)
+				rename_success = True
+				break
+
+		## Second method of renaming the file
+		# Numerical batch numbering
 		# For suppliers info	
 		if actual_name == download_name and\
 		   actual_name[-13:] == "Suppliers.xls":
@@ -351,7 +332,7 @@ def renameBatchFile(download_files, download_name):
 				rename(str(downloaded_files[index]),\
 			       	       batch_filename)
 				rename_success = True
-				print "File renamed to", batch_filename
+				print "Using batch number, File renamed to %s" % (batch_filename)
 				break
 			except WindowsError:
 				print batch_filename + " used by another file"
@@ -366,7 +347,7 @@ def renameBatchFile(download_files, download_name):
 						 str(batch_no)+".xls"
 				rename(str(downloaded_files[index]),\
 			       	batch_filename)
-				print "File renamed to", batch_filename
+				print "Using batch number, File renamed to %s" % (batch_filename)
 				rename_success = True
 				break
 			except WindowsError:
@@ -407,8 +388,12 @@ if (len(argv) < 5):
 report_type = argv[2]
 download_id = getReportType(report_type)
 
-# 3 :Read the file of firm IDs
-firm_list = getFirmList(argv[1]) 
+# 3: Read the file of firm IDs
+company_names_info = getFirmList(argv[1]) 
+firm_list = []
+for company in company_names_info:
+	firm_list.append(company_names_info[company][0])
+firm_list.sort()
 
 batch_size  = int(argv[3])
 download_list = getDownloadList(firm_list, argv)
@@ -440,12 +425,11 @@ while batch_processed_count < len(download_list):
 		print "Initialize batch #" + str(batch_no)
 		batch_list = getBatchList(firm_list, batch_size, batch_no)
 
-		print "Downloading batch #" + str(batch_no) +\
-		      " To download " + str(len(download_list)) +\
-		      " of " + str(batch_total)
+		print "Downloading batch #%d. To download %d of %d"\
+		      % (batch_no, len(download_list), batch_total)
+
 		# Break every 15 batches
-		if batch_processed_count % 15 == 0 and\
-		   batch_processed_count > 0:
+		if batch_processed_count % 15 == 0 and batch_processed_count > 0:
 			print "10 sec break"
 			sleep(10)
 
@@ -464,6 +448,7 @@ while batch_processed_count < len(download_list):
 
 		# Add CQ IDs to the Report Generator
 		valid_firm_count = addFirms(driver, batch_list)
+
 		# Where there are no valid CQ IDs, create a dummy "No data" .xls file
 		# Then proceed to next batch
 		if valid_firm_count == 0:
@@ -471,50 +456,7 @@ while batch_processed_count < len(download_list):
 			print "Dummy %s was created" % (dummy_file_name)
 			print "Next batch"
 			continue
-		"""
-		add_firm = WebDriverWait(driver,30).until(\
-			   EC.presence_of_element_located((\
-			   By.ID,"_rptOpts__rptOptsDS__optsDs__optsTog__esLink")))
-		print "Report Builder loaded"
-		add_firm.click()
-
-		# Enter IDs into the Search box and search
-		search_box = WebDriverWait(driver,15).until(\
-			     EC.presence_of_element_located((\
-			     By.CLASS_NAME, "es-searchinput")))
-
-		search_string = "".join(batch_list)
-		pyperclip.copy(search_string)
-
-		search_box.click()
-		ActionChains(driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-		sleep(1)	
-
-		search_submit = driver.find_element(By.CLASS_NAME,"entitysearch-search")
-	 	sleep(3)
-
-		search_submit.click()
-
-		# Get the number of valid firms and add to report
-		sleep(5)
-		valid_firm_count = getValidFirmCount(driver)
-
-		# Where there are not valid CQ IDs, create a dummy "No data" .xls file
-		# Then proceed to next batch
-		if valid_firm_count == 0:
-			 dummy_file_name = createDummyFile(batch_no, report_type)
-			 print "Dummy %s was created" % (dummy_file_name)
-			 print "Next batch"
-			 continue
-
-		
-		add_to_report = WebDriverWait(driver,15).until(\
-				EC.presence_of_element_located((\
-				By.ID,\
-				"_rptOpts__rptOptsDS__optsDs__optsTog_float_esModal__esSaveCancel__saveBtn")))
-		add_to_report.click()
-		print "Firms added"
-		"""
+	
 
 		# Generate the report
 		min_wait_time = (batch_size/5.0)
@@ -530,12 +472,12 @@ while batch_processed_count < len(download_list):
 			download_name = getDownloadName(report_type, valid_firm_count)
 			rename_tries = 0
 			rename_success = False
-			while rename_tries < 3 and rename_success != True:
-				sleep(10)
+			while rename_tries < 2 and rename_success is not True:
+				sleep(15)
 				rename_tries += 1
 				chdir("C:/Users/faslxkn/Downloads")
 				downloaded_files = listdir("C:/Users/faslxkn/Downloads")
-				rename_success = renameBatchFile(downloaded_files, download_name)
+				rename_success = renameBatchFile(downloaded_files, download_name, company_names_info)
 
 		else:
 			print "Batch generation failed"
