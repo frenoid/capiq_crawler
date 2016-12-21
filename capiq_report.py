@@ -21,7 +21,6 @@ from math import ceil
 import pyperclip
 
 def getReportType(download_type):
-	print download_type
 	if(download_type == "customer"):
 		download_id = "RepBldrTemplateImg1126682"
 	elif(download_type == "supplier"):
@@ -54,29 +53,26 @@ def getFirmList(ids_file):
 	return company_names_info
 
 
-def getDownloadList(firm_list, list_of_args):
+def getDownloadList(company_names_info, argv):
+	query_size = int(argv[3])
+	query_type = argv[4]
+	batch_total = int(ceil(len(company_names_info)/float(query_size)))
+
 	# Calculate the number of batches to download 
-	if argv[3] > 0:
-		batch_size = int(argv[3])
-	else:
-		exit("Invalid batch size")
-
-	batch_total = int(ceil(float(len(firm_list))/batch_size))
-	print str(len(firm_list)) + " Firms and Batch size of "\
-	      + str(batch_size) + " produces " + str(batch_total) + " batches"
-	print "***"
-
+	print "%d firms with query-size of %d makes %d batches"\
+	      % (len(company_names_info), query_size, batch_total)
+	
 	print "Step 2: Selecting firms to download"
 
 	# Arg4 can be either "all", "list", or an integer
 	download_list = []
 
 	# Get all batches 
-	if(argv[4] == "all"):
+	if(query_type == "all"):
 		download_list = range(1, batch_total+1)
 	
 	# Get a list of batches
-	elif(argv[4] == "list"):
+	elif(query_type == "list"):
 		download_list.extend(argv[5:]) 
 		for download_batch in download_list:
 			download_batch = int(download_batch)
@@ -86,7 +82,7 @@ def getDownloadList(firm_list, list_of_args):
 				exit("Batch exceeds batch range")
 
 	# Get a range of batches if arg4 is an integer
-	elif(argv[4] > 0):
+	elif(query_type > 0):
 		batch_start = int(argv[4])
 
 		# arg 5 permits an integer or "end"
@@ -105,10 +101,9 @@ def getDownloadList(firm_list, list_of_args):
 	else:
 		exit("Invalid start batch argument")
 
-	print "Report: *%s*, Batch size: %d" % (argv[2], batch_size)
+	print "Download type: %s" % (argv[2])
+	print "Preparing to download %d batches" % (len(download_list))
 	print download_list
-	batch_download_total = len(download_list) 
-	print "Preparing to download %d batches" % (batch_download_total)
 	print "***"
 
 	return download_list
@@ -147,21 +142,17 @@ def capiqLogin(driver, user_id, user_password):
 
 	return login_success
 
-def getBatchList(firms_list, batch_size, batch_no):
+def getBatchList(company_names_info, batch_no):
 	
 	# Batch creation
 	batch_list = []
-	batch_start = (batch_no - 1) * batch_size
-	batch_end = batch_no * batch_size
-	
-	# Determine if last batch, if so then replace batch end number
-	# with the last few batches numbers
-	if batch_end > len(firm_list):
-		batch_end = batch_start + (len(firm_list)%batch_size)
 
-	print "Creating batch list, adding firm #%d to firm #%d"\
-	      % (batch_start+1, batch_end)
-	batch_list.extend(firm_list[batch_start:batch_end])
+	for company in company_names_info:
+		if company_names_info[company][1] == batch_no:
+			firm_id = company_names_info[company][0]
+			batch_list.append(firm_id)
+
+	print "Batch #%d has been created" % (batch_no)
 
 	return batch_list
 
@@ -238,8 +229,7 @@ def createDummyFile(batch_no, report_type):
 
 def generateReport(driver, batch_no, min_wait_time):
 	# Generate Report
-	success = False
-	sleep(2)
+	filename, success = "", False
 	generate_report = driver.find_element(by=By.ID,\
 			  value=download_id)
 	generate_report.click()
@@ -251,6 +241,8 @@ def generateReport(driver, batch_no, min_wait_time):
 		if driver.title[:12] ==  "Capital IQ R":
 			break
 
+	
+
 	# Wait for at least 30s + min_wait_time for report generation to complete
 	# If still generating, wait an additional 45 secs
 	# If failed, return failed status
@@ -260,12 +252,18 @@ def generateReport(driver, batch_no, min_wait_time):
 
 	# First 30 secs
 	try:
+		# Get file-name of download file
+		filename_element = WebDriverWait(driver,5).until(\
+                    	            EC.presence_of_element_located((\
+                                    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[1]/div[1]")))
+		filename = filename_element.text + ".xls"
+
 		file_link = WebDriverWait(driver,30).until(\
                     	    EC.presence_of_element_located((\
  		            By.LINK_TEXT, "Download")))
 			    
 		file_url = file_link.get_attribute("href")
-		print "Link found! Getting URL " + file_url
+		print "Getting %s from url %s" % (filename, file_url)
 		driver.get(file_url)
 		print "Downloading batch file #" + str(batch_no)
 
@@ -283,20 +281,27 @@ def generateReport(driver, batch_no, min_wait_time):
 		
 		# Wait an additional 45s
 		else:
-			print "Long wait time. Wait an additional 30 sec"
-			file_link = WebDriverWait(driver,45).until(\
-                    	            EC.presence_of_element_located((\
- 		                    By.LINK_TEXT, "Download")))	    
+			print "Long wait time. Wait an additional 45 sec"
+			filename_element = WebDriverWait(driver,5).until(\
+                    	                   EC.presence_of_element_located((\
+                                           By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[1]/div[1]")))
+			filename = filename_element.text + ".xls"
+
+			file_link = WebDriverWait(driver,30).until(\
+                    	   	    EC.presence_of_element_located((\
+ 		            	    By.LINK_TEXT, "Download")))
+			    
 			file_url = file_link.get_attribute("href")
-			print "Link found! Getting URL " + file_url
+			print "Getting %s from url %s" % (filename, file_url)
 			driver.get(file_url)
 			print "Downloading batch file #" + str(batch_no)
+
 			success = True
 
 	if success is False:
 		print "Report generation failed."
 
-	return success 
+	return filename, success 
 
 
 def getDownloadName(report_type, valid_firm_count):
@@ -332,7 +337,7 @@ def renameBatchFile(download_files, download_name, company_names_info):
 
 			try:
 				# Where the 2 methods agree
-				if true_name == batch_filename:
+				if true_name == batch_filename or true_name is "Invalid":
 					rename(actual_name, batch_filename)
 					print "Batch agrees with master, File renamed to %s"\
 					      % (batch_filename)
@@ -391,8 +396,8 @@ for company in company_names_info:
 firm_list.sort()
 
 batch_size  = int(argv[3])
-download_list = getDownloadList(firm_list, argv)
-batch_total = int(ceil(float(len(firm_list))/batch_size))
+download_list = getDownloadList(company_names_info, argv)
+all_batch_count = int(ceil(len(company_names_info)/float(batch_size)))
 
 # 4: Initialize the brower and load Capital IQ 
 # Allow 3 attempts before closing the browser
@@ -427,10 +432,10 @@ while batch_processed_count < len(download_list):
 		batch_no = int(download_list[batch_processed_count])
 		print "+++++++++++++++++++++++++++++++++++++"
 		print "Initialize batch #" + str(batch_no)
-		batch_list = getBatchList(firm_list, batch_size, batch_no)
+		batch_list = getBatchList(company_names_info, batch_no)
 
 		print "Downloading batch #%d. To download %d of %d"\
-		      % (batch_no, len(download_list), batch_total)
+		      % (batch_no, len(download_list), all_batch_count)
 
 		# Break every 15 batches
 		if batch_processed_count % 15 == 0 and batch_processed_count > 0:
@@ -464,7 +469,7 @@ while batch_processed_count < len(download_list):
 
 		# Generate the report
 		min_wait_time = (batch_size/5.0)
-		generateSuccess = generateReport(driver, batch_no, min_wait_time)
+		download_name, generateSuccess = generateReport(driver, batch_no, min_wait_time)
 
 		if generateSuccess is True:
 			if consec_failure_count > 0:
@@ -472,8 +477,10 @@ while batch_processed_count < len(download_list):
 				consec_failure_count = 0
 
 			
-			# Rename the downloaded file, 3 tries allowed 
-			download_name = getDownloadName(report_type, valid_firm_count)
+			# Rename the downloaded file, 3 tries allowed
+			if download_name == "": 
+				download_name = getDownloadName(report_type, valid_firm_count)
+
 			rename_tries = 0
 			rename_success = False
 			while rename_tries < 2 and rename_success is not True:

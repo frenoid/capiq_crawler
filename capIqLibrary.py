@@ -20,7 +20,7 @@ def getCompanyNamesInfo(workbook_path):
 		elif col_title == "batch_no":
 			batch_no_col = col_no
 
-	print "[names, ids, batch_no] = [%d, %d,  %d]"\
+	print "columns: [names, ids, batch_no] = [%d, %d,  %d]"\
 	      % (company_name_col,company_id_col, batch_no_col)
 
 	company_names_info = {}
@@ -40,8 +40,11 @@ def getCompanyNamesInfo(workbook_path):
 
 # Get list of excel files and iterate through them
 def getTrueName(rawfile, company_names_info):
+	true_name = "Invalid"
 	try:
 		excel_file = xlrd.open_workbook(rawfile)
+	except IOError:
+		exit(rawfile + " not found.")
 		sheet_names = excel_file.sheet_names()
 		report_type = "unknown"
 		batch_no_vote = [] 
@@ -93,9 +96,13 @@ def getTrueName(rawfile, company_names_info):
 		
 		# Find the most common batch_number
 		batch_no = (Counter(batch_no_vote).most_common(1))[0][0]
-		true_name = report_type + "_batch_" + str(batch_no) + ".xls"
+
+		# If either report_type or zero data file, return Invalid
 		if report_type == "unknown" or batch_no == 0:
 			true_name = "Invalid"
+		# Else, create true_name accordingly
+		else:
+			true_name = report_type + "_batch_" + str(batch_no) + ".xls"
 
 	### Situations when the names returns invalid
 	# 1. This file contains zero bytes
