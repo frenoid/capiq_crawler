@@ -126,19 +126,26 @@ def capiqInitialize(report_page):
 
 
 def capiqLogin(driver, user_id, user_password):
-	username = driver.find_element(by=By.ID, value="username")
-	password = driver.find_element(By.NAME, "password")
-	signin = driver.find_element(by=By.ID, value="myLoginButton")
+	login_success = False
+	try:
+		username = driver.find_element(by=By.ID, value="username")
+		password = driver.find_element(By.NAME, "password")
+		signin = driver.find_element(by=By.ID, value="myLoginButton")
 
-	username.send_keys(user_id)
-	password.send_keys(user_password)
-	signin.click()
-	print "Login info entered"
+		username.send_keys(user_id)
+		password.send_keys(user_password)
+		signin.click()
+		print "Login info entered"
 
-	WebDriverWait(driver,15).until(EC.title_contains("Report Builder"))
-	print "Login successful: " + driver.title
+		WebDriverWait(driver,15).until(EC.title_contains("Report Builder"))
+		print "Login successful: " + driver.title
+		login_success = True
 
-	return driver
+	except (NoSuchElementException, TimeoutException, UnexpectedAlertPresentException):
+		print "Login failed. Close browser."
+		driver.close()
+
+	return login_success
 
 def getBatchList(firms_list, batch_size, batch_no):
 	
@@ -310,44 +317,32 @@ def renameBatchFile(download_files, download_name, company_names_info):
 	for index in range(len(downloaded_files)):
 		actual_name = str(downloaded_files[index])
 
+		## Use 2 methods to generate the filename, if they agree, rename the file
+		## if not use batch no to rename the file, but mark the file with "star_"
 
-		## First method of renaming the file
-		# Test the file contents against company_names_info
+		# method 1: matching firm name with master table
 		if actual_name == download_name:
 			true_name = getTrueName(actual_name, company_names_info)
-			if true_name is not "Invalid":
-				rename(actual_name, true_name)
-				print "Using firm name, File renamed to %s" % (true_name)
-				rename_success = True
-				break
 
-		## Second method of renaming the file
-		# Numerical batch numbering
-		# For suppliers info	
-		if actual_name == download_name and\
-		   actual_name[-13:] == "Suppliers.xls":
-			try:
-				batch_filename = "suppliers_batch_"+\
-						 str(batch_no)+".xls"
-				rename(str(downloaded_files[index]),\
-			       	       batch_filename)
-				rename_success = True
-				print "Using batch number, File renamed to %s" % (batch_filename)
-				break
-			except WindowsError:
-				print batch_filename + " used by another file"
-				rename_success = True
-				break
+		# method 2: check download batch no and file name
+			if actual_name[-13:] == "Suppliers.xls":
+				batch_filename = "suppliers_batch_" + str(batch_no) + ".xls"
+			elif actual_name[-13:] == "Customers.xls":		
+				batch_filename = "customers_batch_" + str(batch_no) + ".xls"
 
-		# For customer info
-		elif actual_name == download_name and\
-		     actual_name[-13:] == "Customers.xls":		
 			try:
-				batch_filename = "customers_batch_"+\
-						 str(batch_no)+".xls"
-				rename(str(downloaded_files[index]),\
-			       	batch_filename)
-				print "Using batch number, File renamed to %s" % (batch_filename)
+				# Where the 2 methods agree
+				if true_name == batch_filename:
+					rename(actual_name, batch_filename)
+					print "Batch agrees with master, File renamed to %s"\
+					      % (batch_filename)
+
+				# Where the 2 methods disagree
+				else:
+					rename(actual_name, "star_" + batch_filename)
+					print "Batch different from master, File renamed to %s"\
+					      % ("star_" + batch_filename)
+
 				rename_success = True
 				break
 			except WindowsError:
@@ -400,13 +395,22 @@ download_list = getDownloadList(firm_list, argv)
 batch_total = int(ceil(float(len(firm_list))/batch_size))
 
 # 4: Initialize the brower and load Capital IQ 
-report_page = "https://www.capitaliq.com/ciqdotnet/ReportsBuilder/CompanyReports.aspx"
-driver = capiqInitialize(report_page)
-main_window = driver.current_window_handle
-print "Capital IQ website loaded"
+# Allow 3 attempts before closing the browser
+login_attempts = 0
+login_success = False
+while login_attempts < 3 and login_success is False:
+	login_attempts += 1	
+	report_page = "https://www.capitaliq.com/ciqdotnet/ReportsBuilder/CompanyReports.aspx"
+	driver = capiqInitialize(report_page)
+	main_window = driver.current_window_handle
+	print "Capital IQ website loaded"
+	print "Login attempt #%d" % (login_attempts)
+	login_success = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
+	if login_success is False:
+		sleep(60)
 
-# 5: Login
-driver = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
+if login_attempts == 3:
+	exit("Login attempts limit exceeded.")
 
 # Initialize batch generation
 batch_list = []

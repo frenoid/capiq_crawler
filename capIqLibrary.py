@@ -54,8 +54,14 @@ def getTrueName(rawfile, company_names_info):
 				batch_no_vote.append(0)
 				continue
 
-			excel_sheet = excel_file.sheet_by_name(sheet_name)
-			company_name = excel_sheet.cell(1, 0).value
+			try:
+				excel_sheet = excel_file.sheet_by_name(sheet_name)
+				company_name = excel_sheet.cell(1, 0).value
+
+			# Where the data is out of alignment
+			except IndexError:
+				batch_no_vote.append(0)
+				continue
 
 			# No data => next sheet
 			if company_name == "No Data":
@@ -75,7 +81,10 @@ def getTrueName(rawfile, company_names_info):
 				batch_no_vote.append(company_names_info[company_name][1])
 
 			except IndexError:
-				print "No matching batch no, for %s" % (company_name)
+				print "%s has no matching batch no." % (company_name)
+				batch_no_vote.append(0)
+			except KeyError:
+				print "%s was not found in master list" % (company_name)
 				batch_no_vote.append(0)
 
 			# Once 4 firms are positively matched to a batch no, exit the loop 
@@ -85,19 +94,16 @@ def getTrueName(rawfile, company_names_info):
 		# Find the most common batch_number
 		batch_no = (Counter(batch_no_vote).most_common(1))[0][0]
 		true_name = report_type + "_batch_" + str(batch_no) + ".xls"
+		if report_type == "unknown" or batch_no == 0:
+			true_name = "Invalid"
 
 	### Situations when the names returns invalid
 	# 1. This file contains zero bytes
 	except xlrd.biffh.XLRDError:
-		expected_filename = "zero_byte_file"
-		return "Invalid" 
+		true_name = "Invalid"
 	# 2. The file could not be opened 
 	except IOError:
-		expected_filename = "unable_to_open_file"
-		return "Invalid"
-	# 3. The batch no and report type are unknown
-	if true_name is "unknown_batch_0.xls":
-		return "Invalid"
+		true_name = "Invalid"
 
 	return true_name
 
