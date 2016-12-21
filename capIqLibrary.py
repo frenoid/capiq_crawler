@@ -129,4 +129,28 @@ def findMissing(downloaded_files, relations, last_batch):
 
 	return missing
 
+def createDummyFile(batch_no, report_type):
+	if (report_type == "customer"):
+		dummy_file_name = "customers_batch_" + str(batch_no) + ".xls"
+	elif (report_type == "supplier"):
+		dummy_file_name = "suppliers_batch_" + str(batch_no) + ".xls"
+	else:
+		dummy_file_name = "unknown_batch_" + str(batch_no) + ".xls"
+
+	copy("C:/Selenium/capitaliq/example_dummy_file.xls",\
+	     "C:/Users/faslxkn\Downloads/" + dummy_file_name)
+
+	return dummy_file_name
+
+
+def getDownloadName(report_type, valid_firm_count):
+	# Produce an expected filename 
+	if report_type == "customer":
+		download_name = str(valid_firm_count) + "Companies_CompanyCustomers.xls"
+	elif report_type == "supplier":
+		download_name = str(valid_firm_count) + "Companies_CompanySuppliers.xls"
+	else:
+	        download_name = str(valid_firm_count) + "Companies.xls"
+
+	return download_name
 

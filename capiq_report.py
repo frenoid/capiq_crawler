@@ -1,6 +1,5 @@
 # Automated downloading of customer-supplier relations from Capital IQ
 from sys import argv, exit
-from openpyxl import load_workbook
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 from selenium.webdriver.common.by import By
@@ -18,19 +17,9 @@ from time import sleep, time, localtime, strftime
 from os import chdir, remove, rename, listdir
 from shutil import copy
 from math import ceil
-import pyperclip
+from capIqNavigate import getReportType, capiqInitialize, capiqLogin, getValidFirmCount, addFirms, generateReport, capiqLogout
+from capIqLibrary import createDummyFile, getDownloadName
 
-def getReportType(download_type):
-	if(download_type == "customer"):
-		download_id = "RepBldrTemplateImg1126682"
-	elif(download_type == "supplier"):
-		download_id = "RepBldrTemplateImg1126681"
-	else:
-		print "************************"
-		print "Allowed report types: customer / supplier" 
-		exit("Unrecognized report type")
-
-	return download_id
 
 def getFirmList(ids_file):
 	
@@ -108,40 +97,6 @@ def getDownloadList(company_names_info, argv):
 
 	return download_list
 
-def capiqInitialize(report_page):
-	profile = FirefoxProfile()
-	profile.set_preference("browser.helperApps.neverAsk.saveToDisk",\
-		       "application/vnd.ms-excel")
-
-	driver = webdriver.Firefox(firefox_profile = profile)
-	driver.get(report_page)
-	print "Browser loaded"
-
-	return driver
-
-
-def capiqLogin(driver, user_id, user_password):
-	login_success = False
-	try:
-		username = driver.find_element(by=By.ID, value="username")
-		password = driver.find_element(By.NAME, "password")
-		signin = driver.find_element(by=By.ID, value="myLoginButton")
-
-		username.send_keys(user_id)
-		password.send_keys(user_password)
-		signin.click()
-		print "Login info entered"
-
-		WebDriverWait(driver,15).until(EC.title_contains("Report Builder"))
-		print "Login successful: " + driver.title
-		login_success = True
-
-	except (NoSuchElementException, TimeoutException, UnexpectedAlertPresentException):
-		print "Login failed. Close browser."
-		driver.close()
-
-	return login_success
-
 def getBatchList(company_names_info, batch_no):
 	
 	# Batch creation
@@ -156,165 +111,8 @@ def getBatchList(company_names_info, batch_no):
 
 	return batch_list
 
-def getValidFirmCount(driver):
-	try:
-		count_element = WebDriverWait(driver,15).until(\
-			        EC.presence_of_element_located((\
-			        By.PARTIAL_LINK_TEXT,\
-			        "Companies(")))
-
-		count_string = count_element.text
-		count = filter(type(count_string).isdigit, count_string) 
-			   
-		print "%s valid CQ IDs" % (count)
-
-	except (TimeoutException, NoSuchElementException):
-		count = 0
-		print "0 valid CQ IDs"
 
 	return int(count)
-
-def addFirms(driver, batch_list):
-	add_firm = WebDriverWait(driver,30).until(\
-		   EC.presence_of_element_located((\
-		   By.ID,"_rptOpts__rptOptsDS__optsDs__optsTog__esLink")))
-	print "Report Builder loaded"
-	add_firm.click()
-
-	# Enter IDs into the Search box and search
-	search_box = WebDriverWait(driver,15).until(\
-		     EC.presence_of_element_located((\
-		     By.CLASS_NAME, "es-searchinput")))
-
-	search_string = "\n".join(batch_list)
-	pyperclip.copy(search_string)
-
-	search_box.click()
-	ActionChains(driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-	sleep(1)	
-
-	search_submit = driver.find_element(By.CLASS_NAME,"entitysearch-search")
-	sleep(3)
-
-	search_submit.click()
-
-	# Get the number of valid firms and add to report
-	sleep(5)
-	valid_firm_count = getValidFirmCount(driver)
-
-	
-		
-	add_to_report = WebDriverWait(driver,15).until(\
-			EC.presence_of_element_located((\
-			By.ID,\
-			"_rptOpts__rptOptsDS__optsDs__optsTog_float_esModal__esSaveCancel__saveBtn")))
-	add_to_report.click()
-	print "Firms added"
-
-	return valid_firm_count
-
-
-def createDummyFile(batch_no, report_type):
-	if (report_type == "customer"):
-		dummy_file_name = "customers_batch_" + str(batch_no) + ".xls"
-	elif (report_type == "supplier"):
-		dummy_file_name = "suppliers_batch_" + str(batch_no) + ".xls"
-	else:
-		dummy_file_name = "unknown_batch_" + str(batch_no) + ".xls"
-
-	copy("C:/Selenium/capitaliq/example_dummy_file.xls",\
-	     "C:/Users/faslxkn\Downloads/" + dummy_file_name)
-
-	return dummy_file_name
-
-def generateReport(driver, batch_no, min_wait_time):
-	# Generate Report
-	filename, success = "", False
-	generate_report = driver.find_element(by=By.ID,\
-			  value=download_id)
-	generate_report.click()
-	print "Generating Report"
-
-	# Switch to the Download progress windows
-	for handle in driver.window_handles:
-		driver.switch_to.window(handle)
-		if driver.title[:12] ==  "Capital IQ R":
-			break
-
-	
-
-	# Wait for at least 30s + min_wait_time for report generation to complete
-	# If still generating, wait an additional 45 secs
-	# If failed, return failed status
-	# If link found, download the file
-
-	sleep(min_wait_time)
-
-	# First 30 secs
-	try:
-		# Get file-name of download file
-		filename_element = WebDriverWait(driver,5).until(\
-                    	            EC.presence_of_element_located((\
-                                    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[1]/div[1]")))
-		filename = filename_element.text + ".xls"
-
-		file_link = WebDriverWait(driver,30).until(\
-                    	    EC.presence_of_element_located((\
- 		            By.LINK_TEXT, "Download")))
-			    
-		file_url = file_link.get_attribute("href")
-		print "Getting %s from url %s" % (filename, file_url)
-		driver.get(file_url)
-		print "Downloading batch file #" + str(batch_no)
-
-		success = True
-
-	# 30 secs exceeded
-	except TimeoutException:
-
-		# Check for failure
-		link = 	WebDriverWait(driver,5).until(\
-                    	EC.presence_of_element_located((\
- 		        By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[3]/span")))
-		if link.text == "Failed":
-			success = False
-		
-		# Wait an additional 45s
-		else:
-			print "Long wait time. Wait an additional 45 sec"
-			filename_element = WebDriverWait(driver,5).until(\
-                    	                   EC.presence_of_element_located((\
-                                           By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[1]/div[1]")))
-			filename = filename_element.text + ".xls"
-
-			file_link = WebDriverWait(driver,30).until(\
-                    	   	    EC.presence_of_element_located((\
- 		            	    By.LINK_TEXT, "Download")))
-			    
-			file_url = file_link.get_attribute("href")
-			print "Getting %s from url %s" % (filename, file_url)
-			driver.get(file_url)
-			print "Downloading batch file #" + str(batch_no)
-
-			success = True
-
-	if success is False:
-		print "Report generation failed."
-
-	return filename, success 
-
-
-def getDownloadName(report_type, valid_firm_count):
-	# Produce an expected filename 
-	if report_type == "customer":
-		download_name = str(valid_firm_count) + "Companies_CompanyCustomers.xls"
-	elif report_type == "supplier":
-		download_name = str(valid_firm_count) + "Companies_CompanySuppliers.xls"
-	else:
-	        download_name = str(valid_firm_count) + "Companies.xls"
-
-	return download_name
-
 
 def renameBatchFile(download_files, download_name, company_names_info):
 	rename_success = False
@@ -360,21 +158,7 @@ def renameBatchFile(download_files, download_name, company_names_info):
 	return rename_success
 
 
-def capiqLogout(driver, main_window):
-	try:
-		driver.switch_to.window(main_window)
-		logout_link = WebDriverWait(driver,15).until(\
-		      EC.presence_of_element_located((By.LINK_TEXT,"Logout")))
-        	logout_link.click()
-		sleep(2)
-		print "Logging out and exiting"
-		driver.close()
 
-	except TimeoutException or UnexpectedAlertPresentException\
-	       or NoSuchElementException:
-		print "!Exception encountered during logout"
-
-	return
 
 """ Main() """
 # 1: Check if there are enough arguments
@@ -469,7 +253,7 @@ while batch_processed_count < len(download_list):
 
 		# Generate the report
 		min_wait_time = (batch_size/5.0)
-		download_name, generateSuccess = generateReport(driver, batch_no, min_wait_time)
+		download_name, generateSuccess = generateReport(driver, batch_no, min_wait_time, download_id)
 
 		if generateSuccess is True:
 			if consec_failure_count > 0:
