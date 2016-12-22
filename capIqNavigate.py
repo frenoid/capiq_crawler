@@ -150,14 +150,16 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 
 		file_link = WebDriverWait(driver,30).until(\
                     	    EC.presence_of_element_located((\
- 		            By.LINK_TEXT, "Download")))
+ 		            By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[3]/span")))
 			    
 		file_url = file_link.get_attribute("href")
-		print "Getting %s from url %s" % (filename, file_url)
-		driver.get(file_url)
-		print "Downloading batch file #" + str(batch_no)
-
-		success = True
+		if file_url is not None:
+			print "Getting %s from url %s" % (filename, file_url)
+			driver.get(file_url)
+			print "Downloading batch file #" + str(batch_no)
+			success = True
+		else:
+			raise TimeoutException
 
 	# 30 secs exceeded
 	except TimeoutException:
@@ -188,8 +190,14 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 
 			success = True
 
+	finally:
+		for handle in driver.window_handles:
+			driver.switch_to.window(handle)
+			if driver.title[:12] ==  "Capital IQ R":
+				driver.close()
+
 	if success is False:
-		print "Report generation failed."
+		print "Report Generation Failed"
 
 	return filename, success 
 

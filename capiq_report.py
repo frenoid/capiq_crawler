@@ -18,29 +18,8 @@ from os import chdir, remove, rename, listdir
 from shutil import copy
 from math import ceil
 from capIqNavigate import getReportType, capiqInitialize, capiqLogin, getValidFirmCount, addFirms, generateReport, capiqLogout
-from capIqLibrary import createDummyFile, getDownloadName
-
-
-def getFirmList(ids_file):
-	
-	# Read the file of firm IDs
-	company_names_info = {}
-	ids_file = argv[1]
-
-	# Reading an excel file
-	if ids_file[-4:] == "xlsx":
-		company_names_info = getCompanyNamesInfo(ids_file)
-
-	elif ids_file[-4:] == ".txt" or ids_file[-4:] == ".xls":
-		exit(".txt and .xls are no longer supported")
-
-	else:
-		print "%s is an unknown file format" % (ids_file)
-		exit()
-
-
-	return company_names_info
-
+from capIqLibrary import createDummyFile, getDownloadName, getBatchList
+from random import shuffle
 
 def getDownloadList(company_names_info, argv):
 	query_size = int(argv[3])
@@ -97,25 +76,8 @@ def getDownloadList(company_names_info, argv):
 
 	return download_list
 
-def getBatchList(company_names_info, batch_no):
-	
-	# Batch creation
-	batch_list = []
-
-	for company in company_names_info:
-		if company_names_info[company][1] == batch_no:
-			firm_id = company_names_info[company][0]
-			batch_list.append(firm_id)
-
-	print "Batch #%d has been created" % (batch_no)
-
-	return batch_list
-
-
-	return int(count)
-
-def renameBatchFile(download_files, download_name, company_names_info):
-	rename_success = False
+def renameBatchFile(batch_no, downloaded_files, download_name, company_names_info):
+	final_name, rename_success = "Invalid", False
 
 	for index in range(len(downloaded_files)):
 		actual_name = str(downloaded_files[index])
@@ -137,12 +99,15 @@ def renameBatchFile(download_files, download_name, company_names_info):
 				# Where the 2 methods agree
 				if true_name == batch_filename or true_name is "Invalid":
 					rename(actual_name, batch_filename)
+					final_name = batch_filename
+
 					print "Batch agrees with master, File renamed to %s"\
 					      % (batch_filename)
 
 				# Where the 2 methods disagree
 				else:
 					rename(actual_name, "star_" + batch_filename)
+					final_name = "star_" + batch_filename
 					print "Batch different from master, File renamed to %s"\
 					      % ("star_" + batch_filename)
 
@@ -155,8 +120,111 @@ def renameBatchFile(download_files, download_name, company_names_info):
 	if rename_success == False:
 		print "Rename process unsuccessful"
 
-	return rename_success
+	return final_name, rename_success
 
+
+def genSubqueries(batch_list, no_of_splits):	
+	# Format {subquery_no : 'firm_ids'}
+	sub_queries = {}
+	sub_query_no = 0
+
+	# Randomly re-sort the batch-list: to avoid name clashes
+	shuffle(batch_list)
+	no_of_firms_per_subquery = int(len(batch_list) / float(no_of_splits))
+
+	# Create the sub_queries
+	sub_start = 0
+	while True:
+		sub_query_no += 1
+		sub_end = sub_query_no * no_of_firms_per_subquery
+
+		# When reaching the end of the batch_list
+		if sub_end >= len(batch_list):
+			sub_end = len(batch_list) + 1
+ 
+		# Create the sub_query
+		sub_queries[sub_query_no] = batch_list[sub_start:sub_end]
+
+		# If last sub_query has been created, break the loop
+		if sub_end > len(batch_list):
+			break
+	 
+		sub_start = sub_end
+
+	return sub_queries
+
+def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id):
+	success = True
+	print "Sub-querying batch %d" % (batch_no)
+	
+	batch_list = getBatchList(company_names_info, batch_no)
+	sub_queries = genSubqueries(batch_list, no_of_splits)	
+	print "Batch firm list split into %d sub-queries" % (len(sub_queries))
+	
+	for sub_query_no in sub_queries:
+		try:
+			print "+++++++++++++++++++++++++++++++++++"
+			driver.get("https://www.capitaliq.com/ciqdotnet/ReportsBuilder/CompanyReports.aspx")	
+			print "Refresh Report Builder"
+		
+			sub_query_list = sub_queries[sub_query_no]
+			print "Subquery #%d firm-list created" % (sub_query_no)
+
+			# Add CQ IDs to the Report Generator
+			valid_firm_count = addFirms(driver, sub_query_list)
+
+			# Where there are no valid CQ IDs, create a dummy "No data" .xls file
+			# Then proceed to next sub-query
+			if valid_firm_count == 0:
+				dummy_file_name = createDummyFile(batch_no, report_type)
+				dummy_file_name = dummy_file_name[:(len(dummy_file_name)-4)] + "_" + str(sub_query_no) + ".xls"
+				print "Dummy %s was created" % (dummy_file_name)
+				print "Next batch"
+				continue
+	
+
+			# Generate the report
+			min_wait_time = (len(sub_query_list)/3.0)
+			download_name, generateSuccess = generateReport(driver, batch_no, min_wait_time, download_id)
+
+			if generateSuccess is True:
+				# Rename the downloaded file, 3 tries allowed
+				if download_name == "": 
+					download_name = getDownloadName(report_type, valid_firm_count)
+
+				rename_tries = 0
+				rename_success = False
+				while rename_tries < 2 and rename_success is not True:
+					sleep(15)
+					rename_tries += 1
+					chdir("C:/Users/faslxkn/Downloads")
+					downloaded_files = listdir("C:/Users/faslxkn/Downloads")
+					final_name, rename_success = renameBatchFile(batch_no, downloaded_files,\
+							             		     download_name, company_names_info)
+
+					if final_name is not "Invalid":
+						sub_query_final_name = final_name[:(len(final_name)-4)]\
+								       + "_" + str(sub_query_no) + ".xls"
+						try:
+							rename(final_name, sub_query_final_name)
+							print "%s renamed to sub-query name %s"\
+							       % (final_name, sub_query_final_name)
+						except WindowsError:
+							print "%s already exists. Rename failed"\
+							      % (sub_query_final_name)
+
+
+			
+		except (TimeoutException, UnexpectedAlertPresentException, NoSuchElementException, WebDriverException):
+			print "ExceptionEncountered, sub-query incomplete"
+			success = False
+			continue
+
+		finally:
+			# Ensure focus is on main window
+			driver.switch_to.window(main_window)
+
+	return success
 
 
 
@@ -165,7 +233,7 @@ def renameBatchFile(download_files, download_name, company_names_info):
 if (len(argv) < 5):
 	print "%d arguments. Minimum is 4" % (len(argv)-1)
 	print "Arguments: <file_of_ids> <{customer/supplier}] " +\
-	      "<batch_size> <start_batch> [end_batch]"
+	      "<query_size> <start_batch> [end_batch]"
 	exit()
 
 # 2: Set report type
@@ -173,7 +241,7 @@ report_type = argv[2]
 download_id = getReportType(report_type)
 
 # 3: Read the file of firm IDs
-company_names_info = getFirmList(argv[1]) 
+company_names_info = getCompanyNamesInfo(argv[1])
 firm_list = []
 for company in company_names_info:
 	firm_list.append(company_names_info[company][0])
@@ -231,7 +299,7 @@ while batch_processed_count < len(download_list):
 		if consec_failure_count >= 2:
 			print str(consec_failure_count),\
 			      "consecutive failed downloads. Wait 1 minute"
-			sleep(60)
+			# sleep(60)
 
 		# If not first batch, then Refresh the RB
 		if batch_processed_count > 0:
@@ -272,10 +340,9 @@ while batch_processed_count < len(download_list):
 				rename_tries += 1
 				chdir("C:/Users/faslxkn/Downloads")
 				downloaded_files = listdir("C:/Users/faslxkn/Downloads")
-				rename_success = renameBatchFile(downloaded_files, download_name, company_names_info)
+				final_name, rename_success = renameBatchFile(batch_no, downloaded_files, download_name, company_names_info)
 
 		else:
-			print "Batch generation failed"
 			consec_failure_count += 1
 			print "Consecutive failed attempts: %d" % consec_failure_count
 			batch_failed_count += 1
@@ -323,8 +390,6 @@ while batch_processed_count < len(download_list):
 		print "Averge time per batch: %.2f s" % avg_time_per_batch 
 		print "====================================="
 
-# Logout and close the browser
-capiqLogout(driver, main_window)
 
 """ Final print-out of summary statistics """
 # Successes and failures
@@ -336,7 +401,26 @@ print "Processing of %d firms in %d batches completed"\
 print "%d successful batches, %d failed batches, success rate: %.2f"\
       % (batch_successful_count, batch_failed_count, success_rate)
 
-# Failed batches processing
+
+# Subquery each failed batch
+print "++++++++++++++++++++++++++++++++++++"
+no_of_splits = 5
+resolved_batches = []
+for failed_batch in failed_batches:
+	if subQuery(driver, failed_batch, company_names_info, no_of_splits, download_id) is True:
+		print "Batch %d was resolved by subquery" % (failed_batch)
+		resolved_batches.append(failed_batch)
+	else:
+		print "Subquery batch %d failed" % (failed_batch)
+
+for resolved_batch in resolved_batches:
+	failed_batches.pop(resolved_batch)
+
+# Logout and close the browser
+capiqLogout(driver, main_window)
+
+
+# Print remaining failed batches into a text file
 failed_batches = sorted(failed_batches.keys())
 if len(failed_batches) > 0:
 	# Print out the failed batch numbers
@@ -363,6 +447,8 @@ if len(failed_batches) > 0:
 total_download_time = time() - start_time
 print "Total Download Time: %.0f min and %.2f sec" %\
       ((total_download_time/60), int(total_download_time)%60)
+
+
 
 
 print "Script End"

@@ -2,13 +2,17 @@ from openpyxl import load_workbook
 from collections import Counter
 import xlrd
 
-def getCompanyNamesInfo(workbook_path):
+def getCompanyNamesInfo(ids_file):
+	company_names_info = {}
 
+	# Test if the file format is correct, then read the file
+	if ids_file[-4:] == ".txt" or ids_file[-4:] == ".xls":
+		exit(".txt and .xls are no longer supported")
 
 	# Load workbooks into a dictionary of {'firm_name' : [company id, batch_no]}
-	master_table = load_workbook(workbook_path)
+	master_table = load_workbook(ids_file)
 	ws = master_table.active
-	print "Workbook %s loaded" % (workbook_path)
+	print "Workbook %s loaded" % (ids_file)
 
 	for col_no in range(1, 20):
 		col_title = ws.cell(row=1, column=col_no).value
@@ -128,6 +132,20 @@ def findMissing(downloaded_files, relations, last_batch):
 			missing.append(no)
 
 	return missing
+
+def getBatchList(company_names_info, batch_no):
+	
+	# Batch creation
+	batch_list = []
+
+	for company in company_names_info:
+		if company_names_info[company][1] == batch_no:
+			firm_id = company_names_info[company][0]
+			batch_list.append(firm_id)
+
+	print "Batch #%d has been created" % (batch_no)
+
+	return batch_list
 
 def createDummyFile(batch_no, report_type):
 	if (report_type == "customer"):
