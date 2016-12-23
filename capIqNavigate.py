@@ -116,6 +116,46 @@ def addFirms(driver, batch_list):
 
 	return valid_firm_count
 
+def downloadFile(driver, batch_no):
+	download_success = False
+
+	try:
+		# Get file-name of download file
+		filename_element = WebDriverWait(driver,5).until(\
+                    	  	   EC.presence_of_element_located((\
+                           	   By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[1]/div[1]")))
+		filename = filename_element.text + ".xls"
+
+		file_link = WebDriverWait(driver,1).until(\
+                   	    EC.presence_of_element_located((\
+ 		    	    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span/a")))
+	
+		# Check if URL is empty, if not download	    
+		file_url = file_link.get_attribute("href")
+		if file_url is not None:
+			print "Getting %s from url %s" % (filename, file_url)
+			driver.get(file_url)
+			print "Downloading batch file #" + str(batch_no)
+			download_success = True
+		else:
+			download_success = False
+			
+
+	except TimeoutException:
+		file_status = WebDriverWait(driver,1).until(\
+                    	      EC.presence_of_element_located((\
+                              By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span")))
+		print "File status: %s" % (file_status.text)
+		
+		if file_status.text == "Failed":
+			download_success = "Failed"
+		else:
+			download_success = False
+	
+
+	return download_success, filename
+	
+
 def generateReport(driver, batch_no, min_wait_time, download_id):
 	# Generate Report
 	sleep(2)
@@ -133,73 +173,23 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 		if driver.title[:12] ==  "Capital IQ R":
 			break
 
-	# Wait for at least 30s + min_wait_time for report generation to complete
-	# If still generating, wait an additional 45 secs
-	# If failed, return failed status
-	# If link found, download the file
+	# Allow 2 attemps to download
+	# Each time, allow for the min download time to elapse 
+	download_attempts = 0
+	while download_attempts < 2 and success != True and success != "Failed": 
+		download_attempts += 1
+		sleep(min_wait_time)
+		success, filename = downloadFile(driver, batch_no)
 
-	sleep(min_wait_time)
+	for handle in driver.window_handles:
+		driver.switch_to.window(handle)
+		if driver.title[:12] ==  "Capital IQ R":
+			driver.close()
 
-	# First 30 secs
-	try:
-		# Get file-name of download file
-		filename_element = WebDriverWait(driver,5).until(\
-                    	           EC.presence_of_element_located((\
-                                   By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[1]/div[1]")))
-		filename = filename_element.text + ".xls"
+	if success is "Failed":
+		success = False
 
-		file_link = WebDriverWait(driver,30).until(\
-                    	    EC.presence_of_element_located((\
- 		            By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[3]/span")))
-			    
-		file_url = file_link.get_attribute("href")
-		if file_url is not None:
-			print "Getting %s from url %s" % (filename, file_url)
-			driver.get(file_url)
-			print "Downloading batch file #" + str(batch_no)
-			success = True
-		else:
-			raise TimeoutException
-
-	# 30 secs exceeded
-	except TimeoutException:
-
-		# Check for failure
-		link = 	WebDriverWait(driver,5).until(\
-                    	EC.presence_of_element_located((\
- 		        By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[3]/span")))
-		if link.text == "Failed":
-			success = False
-		
-		# Wait an additional 45s
-		else:
-			print "Long wait time. Wait an additional 45 sec"
-			filename_element = WebDriverWait(driver,5).until(\
-                    	                   EC.presence_of_element_located((\
-                                           By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr/td[1]/div[1]")))
-			filename = filename_element.text + ".xls"
-
-			file_link = WebDriverWait(driver,30).until(\
-                    	   	    EC.presence_of_element_located((\
- 		            	    By.LINK_TEXT, "Download")))
-			    
-			file_url = file_link.get_attribute("href")
-			print "Getting %s from url %s" % (filename, file_url)
-			driver.get(file_url)
-			print "Downloading batch file #" + str(batch_no)
-
-			success = True
-
-	finally:
-		for handle in driver.window_handles:
-			driver.switch_to.window(handle)
-			if driver.title[:12] ==  "Capital IQ R":
-				driver.close()
-
-	if success is False:
-		print "Report Generation Failed"
-
-	return filename, success 
+	return success, filename 
 
 def capiqLogout(driver, main_window):
 	try:

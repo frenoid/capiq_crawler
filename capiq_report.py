@@ -18,7 +18,7 @@ from os import chdir, remove, rename, listdir
 from shutil import copy
 from math import ceil
 from capIqNavigate import getReportType, capiqInitialize, capiqLogin, getValidFirmCount, addFirms, generateReport, capiqLogout
-from capIqLibrary import createDummyFile, getDownloadName, getBatchList
+from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles
 from random import shuffle
 
 def getDownloadList(company_names_info, argv):
@@ -78,6 +78,17 @@ def getDownloadList(company_names_info, argv):
 
 def renameBatchFile(batch_no, downloaded_files, download_name, company_names_info):
 	final_name, rename_success = "Invalid", False
+
+	# Check if the download is compelete by checking for .part files
+	# If not complete, then wait 5 secs
+	download_completed = False
+	while download_completed is False:
+		for downloaded_file in downloaded_files:
+			if downloaded_file[-5:] == ".part":
+				print "Download is in progress. Wait 10s"
+				sleep(10)
+				continue
+		download_completed = True
 
 	for index in range(len(downloaded_files)):
 		actual_name = str(downloaded_files[index])
@@ -153,7 +164,7 @@ def genSubqueries(batch_list, no_of_splits):
 
 	return sub_queries
 
-def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id):
+def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, download_path, code_name):
 	success = True
 	print "Sub-querying batch %d" % (batch_no)
 	
@@ -185,7 +196,7 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id):
 
 			# Generate the report
 			min_wait_time = (len(sub_query_list)/3.0)
-			download_name, generateSuccess = generateReport(driver, batch_no, min_wait_time, download_id)
+			generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
 
 			if generateSuccess is True:
 				# Rename the downloaded file, 3 tries allowed
@@ -197,8 +208,8 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id):
 				while rename_tries < 2 and rename_success is not True:
 					sleep(15)
 					rename_tries += 1
-					chdir("C:/Users/faslxkn/Downloads")
-					downloaded_files = listdir("C:/Users/faslxkn/Downloads")
+					chdir(download_path)
+					downloaded_files = listdir(download_path)
 					final_name, rename_success = renameBatchFile(batch_no, downloaded_files,\
 							             		     download_name, company_names_info)
 
@@ -215,13 +226,19 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id):
 
 
 			
-		except (TimeoutException, UnexpectedAlertPresentException, NoSuchElementException, WebDriverException):
+		except (TimeoutException, UnexpectedAlertPresentException,\
+			NoSuchElementException, WebDriverException):
 			print "ExceptionEncountered, sub-query incomplete"
 			success = False
 			continue
 
 		finally:
 			# Ensure focus is on main window
+			# Moving excel files to classification folder
+			final_path = download_path + code_name 
+			files_moved = moveAllExcelFiles(download_path, final_path)
+			print "%d excel files were moved to %s"\
+			      % (files_moved, final_path)
 			driver.switch_to.window(main_window)
 
 	return success
@@ -229,19 +246,24 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id):
 
 
 """ Main() """
-# 1: Check if there are enough arguments
+# 1: Check if there are enough arguments and if download directory is free of .xlsx files
+download_path = "C:/Users/faslxkn/downloads/"
 if (len(argv) < 5):
 	print "%d arguments. Minimum is 4" % (len(argv)-1)
 	print "Arguments: <file_of_ids> <{customer/supplier}] " +\
 	      "<query_size> <start_batch> [end_batch]"
 	exit()
 
+if isDownloadDirClear(download_path) is False:
+	exit("Download dir is not clear. Remove all .xls and .xlsx files")
+
 # 2: Set report type
 report_type = argv[2]
 download_id = getReportType(report_type)
 
 # 3: Read the file of firm IDs
-company_names_info = getCompanyNamesInfo(argv[1])
+code_name = argv[1]
+company_names_info = getCompanyNamesInfo(code_name)
 firm_list = []
 for company in company_names_info:
 	firm_list.append(company_names_info[company][0])
@@ -321,7 +343,7 @@ while batch_processed_count < len(download_list):
 
 		# Generate the report
 		min_wait_time = (batch_size/5.0)
-		download_name, generateSuccess = generateReport(driver, batch_no, min_wait_time, download_id)
+		generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
 
 		if generateSuccess is True:
 			if consec_failure_count > 0:
@@ -338,8 +360,8 @@ while batch_processed_count < len(download_list):
 			while rename_tries < 2 and rename_success is not True:
 				sleep(15)
 				rename_tries += 1
-				chdir("C:/Users/faslxkn/Downloads")
-				downloaded_files = listdir("C:/Users/faslxkn/Downloads")
+				chdir(download_path)
+				downloaded_files = listdir(download_path)
 				final_name, rename_success = renameBatchFile(batch_no, downloaded_files, download_name, company_names_info)
 
 		else:
@@ -381,6 +403,12 @@ while batch_processed_count < len(download_list):
 		batch_failed_count += 1
 		failed_batches[batch_no] = batch_list
 	finally:
+		# Moving excel files to classification folder
+		final_path = download_path + code_name 
+		files_moved = moveAllExcelFiles(download_path, final_path)
+		print "%d excel files were moved to %s" % (files_moved, final_path)
+
+		# Clean-up and report query and download time
 		driver.switch_to.window(main_window)
 		batch_processed_count += 1
 		firms_processed_count += len(batch_list)
@@ -407,7 +435,8 @@ print "++++++++++++++++++++++++++++++++++++"
 no_of_splits = 5
 resolved_batches = []
 for failed_batch in failed_batches:
-	if subQuery(driver, failed_batch, company_names_info, no_of_splits, download_id) is True:
+	if subQuery(driver, failed_batch, company_names_info, no_of_splits, download_id,\
+		    download_path, code_name) is True:
 		print "Batch %d was resolved by subquery" % (failed_batch)
 		resolved_batches.append(failed_batch)
 	else:

@@ -1,18 +1,28 @@
 from openpyxl import load_workbook
 from collections import Counter
 import xlrd
+from os import listdir
+from shutil import move
 
-def getCompanyNamesInfo(ids_file):
+def isDownloadDirClear(download_dir):
+	is_download_dir_clear = True
+
+	dir_entries = listdir(download_dir)
+	for entry in dir_entries:
+		if entry[-5:] == ".xlsx" or entry [-4:] == ".xls":
+			is_download_dir_clear = False
+
+	return is_download_dir_clear
+
+
+def getCompanyNamesInfo(code_name):
 	company_names_info = {}
-
-	# Test if the file format is correct, then read the file
-	if ids_file[-4:] == ".txt" or ids_file[-4:] == ".xls":
-		exit(".txt and .xls are no longer supported")
+	ids_file_path = "./firm_lists/" + code_name + ".xlsx"
 
 	# Load workbooks into a dictionary of {'firm_name' : [company id, batch_no]}
-	master_table = load_workbook(ids_file)
+	master_table = load_workbook(ids_file_path)
 	ws = master_table.active
-	print "Workbook %s loaded" % (ids_file)
+	print "Workbook %s loaded" % (ids_file_path)
 
 	for col_no in range(1, 20):
 		col_title = ws.cell(row=1, column=col_no).value
@@ -171,4 +181,20 @@ def getDownloadName(report_type, valid_firm_count):
 	        download_name = str(valid_firm_count) + "Companies.xls"
 
 	return download_name
+
+def moveAllExcelFiles(source_dir, destination_dir):
+	entries = listdir(source_dir)
+	files_moved = 0
+
+	for entry in entries:
+		if entry [-5:] == ".xlsx" or entry[-4:] == ".xls":
+			try:
+				move(source_dir + entry, destination_dir +"/"+ entry)
+				files_moved += 1
+			except IOError:
+				print "%s could not be moved" % (entry)
+				continue
+
+	return files_moved
+
 
