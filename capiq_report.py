@@ -19,6 +19,7 @@ from shutil import copy
 from math import ceil
 from capIqNavigate import getReportType, capiqInitialize, capiqLogin, getValidFirmCount, addFirms, generateReport, capiqLogout
 from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles
+from capIqAppendSubqueries import appendSubqueries
 from random import shuffle
 
 def getDownloadList(company_names_info, argv):
@@ -76,19 +77,21 @@ def getDownloadList(company_names_info, argv):
 
 	return download_list
 
-def renameBatchFile(batch_no, downloaded_files, download_name, company_names_info):
+def renameBatchFile(batch_no, download_path, download_name, company_names_info):
 	final_name, rename_success = "Invalid", False
+	wait_time = 15
 
 	# Check if the download is compelete by checking for .part files
-	# If not complete, then wait 5 secs
-	download_completed = False
-	while download_completed is False:
+	download_success = False
+	while download_success is False:
+		downloaded_files = listdir(download_path)
+		download_success = True
 		for downloaded_file in downloaded_files:
 			if downloaded_file[-5:] == ".part":
-				print "Download is in progress. Wait 10s"
-				sleep(10)
-				continue
-		download_completed = True
+				print "Download incomplete. Wait", str(wait_time), "seconds"
+				download_success = False
+				sleep(wait_time)
+				break
 
 	for index in range(len(downloaded_files)):
 		actual_name = str(downloaded_files[index])
@@ -166,6 +169,7 @@ def genSubqueries(batch_list, no_of_splits):
 
 def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, download_path, code_name):
 	success = True
+	failed_ids = []
 	print "Sub-querying batch %d" % (batch_no)
 	
 	batch_list = getBatchList(company_names_info, batch_no)
@@ -174,7 +178,7 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 	
 	for sub_query_no in sub_queries:
 		try:
-			print "+++++++++++++++++++++++++++++++++++"
+			print "++++++++++++Subquery #%d+++++++++++++" % (sub_query_no)
 			driver.get("https://www.capitaliq.com/ciqdotnet/ReportsBuilder/CompanyReports.aspx")	
 			print "Refresh Report Builder"
 		
@@ -205,14 +209,13 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 
 				rename_tries = 0
 				rename_success = False
-				while rename_tries < 2 and rename_success is not True:
+				while rename_tries < 5 and rename_success is not True:
 					sleep(15)
 					rename_tries += 1
 					chdir(download_path)
-					downloaded_files = listdir(download_path)
-					final_name, rename_success = renameBatchFile(batch_no, downloaded_files,\
+					final_name, rename_success = renameBatchFile(batch_no, download_path,\
 							             		     download_name, company_names_info)
-
+					# Append the subquery no
 					if final_name is not "Invalid":
 						sub_query_final_name = final_name[:(len(final_name)-4)]\
 								       + "_" + str(sub_query_no) + ".xls"
@@ -227,8 +230,9 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 
 			
 		except (TimeoutException, UnexpectedAlertPresentException,\
-			NoSuchElementException, WebDriverException):
-			print "ExceptionEncountered, sub-query incomplete"
+			NoSuchElementException, WebDriverException) as e:
+			print "Exception", e, "encountered, sub-query incomplete"
+			failed_ids.extend(sub_query_list)
 			success = False
 			continue
 
@@ -241,11 +245,9 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 			      % (files_moved, final_path)
 			driver.switch_to.window(main_window)
 
-	return success
+	return success, failed_ids 
 
 
-
-""" Main() """
 # 1: Check if there are enough arguments and if download directory is free of .xlsx files
 download_path = "C:/Users/faslxkn/downloads/"
 if (len(argv) < 5):
@@ -320,8 +322,7 @@ while batch_processed_count < len(download_list):
 		# Wait the equivalent number of minutes
 		if consec_failure_count >= 2:
 			print str(consec_failure_count),\
-			      "consecutive failed downloads. Wait 1 minute"
-			# sleep(60)
+			      "consecutive failed downloads." 
 
 		# If not first batch, then Refresh the RB
 		if batch_processed_count > 0:
@@ -357,51 +358,27 @@ while batch_processed_count < len(download_list):
 
 			rename_tries = 0
 			rename_success = False
-			while rename_tries < 2 and rename_success is not True:
-				sleep(15)
+			while rename_tries < 10 and rename_success is not True:
+				sleep(10)
 				rename_tries += 1
 				chdir(download_path)
-				downloaded_files = listdir(download_path)
-				final_name, rename_success = renameBatchFile(batch_no, downloaded_files, download_name, company_names_info)
+				final_name, rename_success = renameBatchFile(batch_no, download_path , download_name, company_names_info)
+				if rename_tries == 10 and rename_success is not True:
+					print "Rename tries:", str(rename_tries), "Max tries exceeded"
 
+		# Where batch generation failed, throw TimeoutException
 		else:
-			consec_failure_count += 1
-			print "Consecutive failed attempts: %d" % consec_failure_count
-			batch_failed_count += 1
-			failed_batches[batch_no] = batch_list
-			continue
-
-		# Ensure focus is on main window
-		driver.switch_to.window(main_window)
+			raise TimeoutException("Batch generation failed")
 
 	# Exception handling
-	except TimeoutException:
-		print "!Exception: Timeout, proceed to next batch"
+	except (TimeoutException, UnexpectedAlertPresentException, NoSuchElementException, WebDriverException) as e:
+		print "!Exception:", e, "proceed to next batch"
 		consec_failure_count += 1
 		print "Consecutive failed attempts: %d" % consec_failure_count
 		batch_failed_count += 1
 		failed_batches[batch_no] = batch_list
 		continue
-	except UnexpectedAlertPresentException:
-		print "!Exception: Unexpected alert, proceed to next batch"
-		consec_failure_count += 1
-		print "Consecutive failed attempts: %d" % consec_failure_count
-		batch_failed_count += 1
-		failed_batches[batch_no] = batch_list
-		continue
-	except NoSuchElementException:
-		print "!Exception: Element not found, proceed to next batch"
-		consec_failure_count += 1
-		print "Consecutive failed attempts: %d" % consec_failure_count
-		batch_failed_count += 1
-		failed_batches[batch_no] = batch_list
-		continue
-	except WebDriverException:
-		print "!Exception: WebDriverException, proceed to next batch"
-		consec_failure_count += 1
-		print "Consective failed attempts: %d" % consec_failure_count
-		batch_failed_count += 1
-		failed_batches[batch_no] = batch_list
+
 	finally:
 		# Moving excel files to classification folder
 		final_path = download_path + code_name 
@@ -413,14 +390,13 @@ while batch_processed_count < len(download_list):
 		batch_processed_count += 1
 		firms_processed_count += len(batch_list)
 		batch_time = time()	
-		avg_time_per_batch = (batch_time-start_time)/\
-				     batch_processed_count
+		avg_time_per_batch = (batch_time-start_time)/batch_processed_count
 		print "Averge time per batch: %.2f s" % avg_time_per_batch 
 		print "====================================="
 
 
 """ Final print-out of summary statistics """
-# Successes and failures
+# Count the successes and success rate
 batch_successful_count = batch_processed_count - batch_failed_count
 success_rate = 100.0*float(batch_successful_count)/float(batch_processed_count)
 
@@ -429,26 +405,35 @@ print "Processing of %d firms in %d batches completed"\
 print "%d successful batches, %d failed batches, success rate: %.2f"\
       % (batch_successful_count, batch_failed_count, success_rate)
 
+failed_batches.sort()
+print "Failed batches: ",
+for failed_batch_no in failed_batches:
+	print str(failed_batch_no),
+
+print ""
 
 # Subquery each failed batch
-print "++++++++++++++++++++++++++++++++++++"
+print "************************************"
+print "*           Subqueries             *"
+print "************************************"
+
+remaining_ids = []
 no_of_splits = 5
-resolved_batches = []
+
 for failed_batch in failed_batches:
-	if subQuery(driver, failed_batch, company_names_info, no_of_splits, download_id,\
-		    download_path, code_name) is True:
+	subquery_success, subquery_failed_ids = subQuery(driver, failed_batch, company_names_info, no_of_splits,\
+			                                 download_id, download_path, code_name)
+
+	if subquery_success is True:
 		print "Batch %d was resolved by subquery" % (failed_batch)
-		resolved_batches.append(failed_batch)
 	else:
 		print "Subquery batch %d failed" % (failed_batch)
-
-for resolved_batch in resolved_batches:
-	failed_batches.pop(resolved_batch)
+		remaining_ids.extend(subquery_failed_ids)
 
 # Logout and close the browser
 capiqLogout(driver, main_window)
 
-
+"""
 # Print remaining failed batches into a text file
 failed_batches = sorted(failed_batches.keys())
 if len(failed_batches) > 0:
@@ -460,18 +445,29 @@ if len(failed_batches) > 0:
 
 
 	# Writing failed batch numbers to file 
-	print "Writing batch numbers to failed_ids.txt"
-	with open("failed_ids.txt", 'a') as fail_log:
-		# Header with session and time
+	print "Writing batch numbers to failed_batches.txt"
+	with open("failed_batches.txt", 'a') as fail_log:
+		# Header with session and time and report type
 		session_end_time =  strftime("%a, %d %b %Y %H:%M +0800",\
 				    localtime())
 		fail_log.write("@ Session @ " + session_end_time + "\n")
-		fail_log.write("File: " + argv[1] + " Report: " + argv[2] +\
-			       "\n")
+		fail_log.write("File: " + argv[1] + " Report: " + argv[2] + "\n")
 
 		# Write the failed batch numbers down 
 		fail_log.write(str(failed_batch_no) + "\n\n")
-			
+"""
+# Writing failed ids to file
+print "Writing failed ids to failed_ids.txt"
+with open("failed_ids.txt", 'a') as fail_log:
+	# Header with session and time and report type
+	session_end_time =  strftime("# %a, %d %b %Y %H:%M +0800", localtime())
+	fail_log.write("# @ Session @ " + session_end_time + "\n")
+	fail_log.write("# List of failed firm ids")
+	fail_log.write("# File: " + argv[1] + " Report: " + argv[2] + "\n")
+
+	for firm_id in remaining_ids:
+		fail_log.write(firm_id + "\n")
+	
 # Print total Download time
 total_download_time = time() - start_time
 print "Total Download Time: %.0f min and %.2f sec" %\

@@ -118,15 +118,16 @@ def addFirms(driver, batch_list):
 
 def downloadFile(driver, batch_no):
 	download_success = False
+	filename = ""
 
 	try:
 		# Get file-name of download file
-		filename_element = WebDriverWait(driver,5).until(\
+		filename_element = WebDriverWait(driver,3).until(\
                     	  	   EC.presence_of_element_located((\
                            	   By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[1]/div[1]")))
 		filename = filename_element.text + ".xls"
 
-		file_link = WebDriverWait(driver,1).until(\
+		file_link = WebDriverWait(driver,3).until(\
                    	    EC.presence_of_element_located((\
  		    	    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span/a")))
 	
@@ -173,11 +174,13 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 		if driver.title[:12] ==  "Capital IQ R":
 			break
 
-	# Allow 2 attemps to download
+	# 3 checks for the genreation completeness 
 	# Each time, allow for the min download time to elapse 
+	# If status == "Failed", exit loop, return generation failure
 	download_attempts = 0
-	while download_attempts < 2 and success != True and success != "Failed": 
+	while download_attempts < 3 and success != True and success != "Failed": 
 		download_attempts += 1
+		print "Download attempt #", str(download_attempts)
 		sleep(min_wait_time)
 		success, filename = downloadFile(driver, batch_no)
 
@@ -195,15 +198,17 @@ def capiqLogout(driver, main_window):
 	try:
 		driver.switch_to.window(main_window)
 		logout_link = WebDriverWait(driver,15).until(\
-		      EC.presence_of_element_located((By.LINK_TEXT,"Logout")))
+		              EC.presence_of_element_located((By.LINK_TEXT,"Logout")))
         	logout_link.click()
 		sleep(2)
-		print "Logging out and exiting"
-		driver.close()
+		print "Logging out" 
 
-	except TimeoutException or UnexpectedAlertPresentException\
-	       or NoSuchElementException:
+	except (TimeoutException, UnexpectedAlertPresentException, NoSuchElementException):
 		print "!Exception encountered during logout"
+
+	finally:
+		driver.close()
+		print "Exiting browser"
 
 	return
 
