@@ -405,7 +405,7 @@ print "Processing of %d firms in %d batches completed"\
 print "%d successful batches, %d failed batches, success rate: %.2f"\
       % (batch_successful_count, batch_failed_count, success_rate)
 
-failed_batches.sort()
+failed_batches = sorted(failed_batches.keys())
 print "Failed batches: ",
 for failed_batch_no in failed_batches:
 	print str(failed_batch_no),
