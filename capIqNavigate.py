@@ -54,8 +54,7 @@ def capiqLogin(driver, user_id, user_password):
 		login_success = True
 
 	except (NoSuchElementException, TimeoutException, UnexpectedAlertPresentException):
-		print "Login failed. Close browser."
-		driver.close()
+		print "Login failed"
 
 	return login_success
 

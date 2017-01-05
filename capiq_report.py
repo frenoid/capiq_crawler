@@ -288,7 +288,9 @@ while login_attempts < 3 and login_success is False:
 	print "Login attempt #%d" % (login_attempts)
 	login_success = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
 	if login_success is False:
+		print "Close browser. Wait one minute"
 		sleep(60)
+		driver.close()
 
 if login_attempts == 3:
 	exit("Login attempts limit exceeded.")
@@ -412,10 +414,11 @@ for failed_batch_no in failed_batches:
 
 print ""
 
-# Subquery each failed batch
-print "************************************"
-print "*           Subqueries             *"
-print "************************************"
+if len(failed_batches) > 0 :
+	# Subquery each failed batch
+	print "************************************"
+	print "*           Subqueries             *"
+	print "************************************"
 
 remaining_ids = []
 no_of_splits = 5
@@ -462,7 +465,7 @@ with open("failed_ids.txt", 'a') as fail_log:
 	# Header with session and time and report type
 	session_end_time =  strftime("# %a, %d %b %Y %H:%M +0800", localtime())
 	fail_log.write("# @ Session @ " + session_end_time + "\n")
-	fail_log.write("# List of failed firm ids")
+	fail_log.write("# List of failed firm ids\n")
 	fail_log.write("# File: " + argv[1] + " Report: " + argv[2] + "\n")
 
 	for firm_id in remaining_ids:
