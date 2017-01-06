@@ -178,7 +178,7 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 	
 	for sub_query_no in sub_queries:
 		try:
-			print "++++++++++++Subquery #%d+++++++++++++" % (sub_query_no)
+			print "++++++ Subquery #%d of batch #%d +++++++" % (sub_query_no, batch_no)
 			driver.get("https://www.capitaliq.com/ciqdotnet/ReportsBuilder/CompanyReports.aspx")	
 			print "Refresh Report Builder"
 		
@@ -459,6 +459,7 @@ if len(failed_batches) > 0:
 		# Write the failed batch numbers down 
 		fail_log.write(str(failed_batch_no) + "\n\n")
 """
+
 # Writing failed ids to file
 print "Writing failed ids to failed_ids.txt"
 with open("failed_ids.txt", 'a') as fail_log:

@@ -2,7 +2,7 @@ from openpyxl import Workbook, load_workbook
 from collections import Counter
 import xlrd
 from os import listdir, chdir
-from shutil import move
+from shutil import move, copy
 
 def isDownloadDirClear(download_dir):
 	is_download_dir_clear = True
