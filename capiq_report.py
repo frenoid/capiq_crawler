@@ -22,10 +22,11 @@ from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownl
 from capIqAppendSubqueries import appendSubqueries
 from random import shuffle
 
+# Returns a list of batch numbers to download
 def getDownloadList(company_names_info, argv):
 	query_size = int(argv[3])
 	query_type = argv[4]
-	batch_total = int(ceil(len(company_names_info)/float(query_size)))
+	batch_total = int(ceil(len(company_names_info)/float(query_size))) + 1
 
 	# Calculate the number of batches to download 
 	print "%d firms with query-size of %d makes %d batches"\
@@ -70,15 +71,17 @@ def getDownloadList(company_names_info, argv):
 	else:
 		exit("Invalid start batch argument")
 
+	download_list.sort()
 	print "Download type: %s" % (argv[2])
 	print "Preparing to download %d batches" % (len(download_list))
-	print download_list
+	print "Batch # to download", str(download_list)
 	print "***"
 
 	return download_list
 
 def renameBatchFile(batch_no, download_path, download_name, company_names_info):
-	final_name, rename_success = "Invalid", False
+	final_name = "Invalid"
+	rename_success = False
 	wait_time = 15
 
 	# Check if the download is compelete by checking for .part files
@@ -93,6 +96,7 @@ def renameBatchFile(batch_no, download_path, download_name, company_names_info):
 				sleep(wait_time)
 				break
 
+	# When download is complete, search for the downloaded file to rename it
 	for index in range(len(downloaded_files)):
 		actual_name = str(downloaded_files[index])
 
@@ -100,6 +104,7 @@ def renameBatchFile(batch_no, download_path, download_name, company_names_info):
 		## if not use batch no to rename the file, but mark the file with "star_"
 
 		# method 1: matching firm name with master table
+		# true_name is what the file will be renamed to
 		if actual_name == download_name:
 			true_name = getTrueName(actual_name, company_names_info)
 
@@ -110,7 +115,7 @@ def renameBatchFile(batch_no, download_path, download_name, company_names_info):
 				batch_filename = "customers_batch_" + str(batch_no) + ".xls"
 
 			try:
-				# Where the 2 methods agree
+				# Where the 2 methods agree or getTrueName returns "Invalid"
 				if true_name == batch_filename or true_name is "Invalid":
 					rename(actual_name, batch_filename)
 					final_name = batch_filename
@@ -198,7 +203,7 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 				continue
 	
 
-			# Generate the report
+			# Generate the report, min_wait_time is one-third of the full minimum wait time
 			min_wait_time = (len(sub_query_list)/3.0)
 			generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
 
@@ -215,7 +220,7 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 					chdir(download_path)
 					final_name, rename_success = renameBatchFile(batch_no, download_path,\
 							             		     download_name, company_names_info)
-					# Append the subquery no
+					# Append the subquery no onto the batch_no
 					if final_name is not "Invalid":
 						sub_query_final_name = final_name[:(len(final_name)-4)]\
 								       + "_" + str(sub_query_no) + ".xls"
@@ -273,7 +278,7 @@ firm_list.sort()
 
 batch_size  = int(argv[3])
 download_list = getDownloadList(company_names_info, argv)
-all_batch_count = int(ceil(len(company_names_info)/float(batch_size)))
+all_batch_count = int(ceil(len(company_names_info)/float(batch_size))) + 1
 
 # 4: Initialize the brower and load Capital IQ 
 # Allow 3 attempts before closing the browser
@@ -286,7 +291,8 @@ while login_attempts < 3 and login_success is False:
 	main_window = driver.current_window_handle
 	print "Capital IQ website loaded"
 	print "Login attempt #%d" % (login_attempts)
-	login_success = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
+	driver, login_success = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
+
 	if login_success is False:
 		print "Close browser. Wait one minute"
 		sleep(60)
@@ -303,13 +309,14 @@ start_time = time()
 failed_batches = {}
 consec_failure_count = 0
 firms_processed_count = 0
+keyboard_interrupt_flag = False
 
 # Central loop: Terminates when the last batch is processed 
-while batch_processed_count < len(download_list):
+# while batch_processed_count < len(download_list):
+for batch_no in download_list:
 	try:
-		batch_no = int(download_list[batch_processed_count])
-		print "+++++++++++++++++++++++++++++++++++++"
-		print "Initialize batch #" + str(batch_no)
+		batch_no = int(batch_no)
+		print "++++++++++++Batch # %d++++++++++++++++" % (batch_no)
 		batch_list = getBatchList(company_names_info, batch_no)
 
 		print "Downloading batch #%d. To download %d of %d"\
@@ -323,16 +330,14 @@ while batch_processed_count < len(download_list):
 		# Check if there have been more than 2 or more failures
 		# Wait the equivalent number of minutes
 		if consec_failure_count >= 2:
-			print str(consec_failure_count),\
-			      "consecutive failed downloads." 
+			print str(consec_failure_count), "consecutive failed downloads." 
 
-		# If not first batch, then Refresh the RB
+		# If not first batch, then Refresh the RB to clear the Report Builder query list
 		if batch_processed_count > 0:
 			driver.get(report_page)	
 			print "Refresh Report Builder"
 
-
-		# Add CQ IDs to the Report Generator
+		# Add CQ IDs to the Report Builder
 		valid_firm_count = addFirms(driver, batch_list)
 
 		# Where there are no valid CQ IDs, create a dummy "No data" .xls file
@@ -342,7 +347,6 @@ while batch_processed_count < len(download_list):
 			print "Dummy %s was created" % (dummy_file_name)
 			print "Next batch"
 			continue
-	
 
 		# Generate the report
 		min_wait_time = (batch_size/5.0)
@@ -352,12 +356,13 @@ while batch_processed_count < len(download_list):
 			if consec_failure_count > 0:
 				print "Consecutive failures reset to 0"
 				consec_failure_count = 0
-
 			
-			# Rename the downloaded file, 3 tries allowed
+			# If the download name is not returned by generateReport, manually create it instead
 			if download_name == "": 
 				download_name = getDownloadName(report_type, valid_firm_count)
+				print "Guessed download_name:", download_name 
 
+			# 10 tries allowed to rename the downloaded file, each time checking for partial downloads
 			rename_tries = 0
 			rename_success = False
 			while rename_tries < 10 and rename_success is not True:
@@ -380,6 +385,12 @@ while batch_processed_count < len(download_list):
 		batch_failed_count += 1
 		failed_batches[batch_no] = batch_list
 		continue
+
+	except KeyboardInterrupt:
+		print "!Exception: Keyboard interrupt"
+		print "Script is cleaning-up. Please wait."
+		keyboard_interrupt_flag = True
+		break
 
 	finally:
 		# Moving excel files to classification folder
@@ -414,7 +425,8 @@ for failed_batch_no in failed_batches:
 
 print ""
 
-if len(failed_batches) > 0 :
+# Subquering the failed batch numbers
+if len(failed_batches) > 0 and keyboard_interrupt_flag is False:
 	# Subquery each failed batch
 	print "************************************"
 	print "*           Subqueries             *"
@@ -476,8 +488,5 @@ with open("failed_ids.txt", 'a') as fail_log:
 total_download_time = time() - start_time
 print "Total Download Time: %.0f min and %.2f sec" %\
       ((total_download_time/60), int(total_download_time)%60)
-
-
-
 
 print "Script End"

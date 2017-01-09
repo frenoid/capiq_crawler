@@ -33,6 +33,7 @@ def capiqInitialize(report_page):
 
 	driver = webdriver.Firefox(firefox_profile = profile)
 	driver.get(report_page)
+	sleep(3)
 	print "Browser loaded"
 
 	return driver
@@ -47,16 +48,18 @@ def capiqLogin(driver, user_id, user_password):
 		username.send_keys(user_id)
 		password.send_keys(user_password)
 		signin.click()
-		print "Login info entered"
+		print "Login info entered. Signing in."
 
-		WebDriverWait(driver,15).until(EC.title_contains("Report Builder"))
-		print "Login successful: " + driver.title
-		login_success = True
-
+		WebDriverWait(driver,30).until(EC.title_contains("Report Builder"))
+		if "Report Builder" in driver.title:
+			print "Login successful: " + driver.title
+			login_success = True
+		else:
+			print "Login failed: ", driver.title
 	except (NoSuchElementException, TimeoutException, UnexpectedAlertPresentException):
-		print "Login failed"
+		print "Login failed: ", driver.title
 
-	return login_success
+	return driver, login_success
 
 def getValidFirmCount(driver):
 	try:
@@ -120,12 +123,13 @@ def downloadFile(driver, batch_no):
 	filename = ""
 
 	try:
-		# Get file-name of download file
+		# Get file-name of the file in the first row of the table
 		filename_element = WebDriverWait(driver,3).until(\
                     	  	   EC.presence_of_element_located((\
                            	   By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[1]/div[1]")))
 		filename = filename_element.text + ".xls"
 
+		# Get the file-link of the file in the first row of the table
 		file_link = WebDriverWait(driver,3).until(\
                    	    EC.presence_of_element_located((\
  		    	    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span/a")))
@@ -139,7 +143,6 @@ def downloadFile(driver, batch_no):
 			download_success = True
 		else:
 			download_success = False
-			
 
 	except TimeoutException:
 		file_status = WebDriverWait(driver,1).until(\
@@ -159,7 +162,8 @@ def downloadFile(driver, batch_no):
 def generateReport(driver, batch_no, min_wait_time, download_id):
 	# Generate Report
 	sleep(2)
-	filename, success = "", False
+	filename = ""
+	success = False
 	generate_report = WebDriverWait(driver,15).until(\
                     	  EC.presence_of_element_located((\
 			  By.ID, download_id)))
