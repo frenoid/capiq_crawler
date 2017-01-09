@@ -26,7 +26,7 @@ from random import shuffle
 def getDownloadList(company_names_info, argv):
 	query_size = int(argv[3])
 	query_type = argv[4]
-	batch_total = int(ceil(len(company_names_info)/float(query_size))) + 1
+	batch_total = int(ceil(len(company_names_info)/float(query_size)))
 
 	# Calculate the number of batches to download 
 	print "%d firms with query-size of %d makes %d batches"\
@@ -278,7 +278,7 @@ firm_list.sort()
 
 batch_size  = int(argv[3])
 download_list = getDownloadList(company_names_info, argv)
-all_batch_count = int(ceil(len(company_names_info)/float(batch_size))) + 1
+all_batch_count = int(ceil(len(company_names_info)/float(batch_size)))
 
 # 4: Initialize the brower and load Capital IQ 
 # Allow 3 attempts before closing the browser
