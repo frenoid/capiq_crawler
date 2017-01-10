@@ -44,6 +44,7 @@ def capiqLogin(driver, user_id, user_password):
 		username = driver.find_element(by=By.ID, value="username")
 		password = driver.find_element(By.NAME, "password")
 		signin = driver.find_element(by=By.ID, value="myLoginButton")
+		sleep(5)
 
 		username.send_keys(user_id)
 		password.send_keys(user_password)
