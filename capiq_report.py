@@ -113,6 +113,8 @@ def renameBatchFile(batch_no, download_path, download_name, company_names_info):
 				batch_filename = "suppliers_batch_" + str(batch_no) + ".xls"
 			elif actual_name[-13:] == "Customers.xls":		
 				batch_filename = "customers_batch_" + str(batch_no) + ".xls"
+			elif actual_name[-17:] == "CorporateTree.xls":
+				batch_filename = "corporateT_batch_" + str(batch_no) + ".xls"
 
 			try:
 				# Where the 2 methods agree or getTrueName returns "Invalid"
@@ -322,10 +324,11 @@ for batch_no in download_list:
 		print "Downloading batch #%d. To download %d of %d"\
 		      % (batch_no, len(download_list), all_batch_count)
 
-		# Break every 15 batches
+		""" # Break every 15 batches
 		if batch_processed_count % 15 == 0 and batch_processed_count > 0:
 			print "10 sec break"
 			sleep(10)
+		"""
 
 		# Check if there have been more than 2 or more failures
 		# Wait the equivalent number of minutes

@@ -92,6 +92,8 @@ def getTrueName(rawfile, company_names_info):
 				report_type = "customers"
 			elif report_type == "  Suppliers":
 				report_type = "suppliers"
+			elif report_type == "Corporate Tree":
+				report_type = "corporateT"
 
 			# Get the batch_no
 			try:
@@ -177,6 +179,8 @@ def getDownloadName(report_type, valid_firm_count):
 		download_name = str(valid_firm_count) + "Companies_CompanyCustomers.xls"
 	elif report_type == "supplier":
 		download_name = str(valid_firm_count) + "Companies_CompanySuppliers.xls"
+	elif report_type == "corporate_tree":
+		download_name = str(valid_firm_count) + "Companies_CorporateTree.xls"
 	else:
 	        download_name = str(valid_firm_count) + "Companies.xls"
 

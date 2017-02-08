@@ -18,6 +18,8 @@ def getReportType(download_type):
 		download_id = "RepBldrTemplateImg1126682"
 	elif(download_type == "supplier"):
 		download_id = "RepBldrTemplateImg1126681"
+	elif(download_type == "corporate_tree"):
+		download_id = "RepBldrTemplateImg1126743"
 	else:
 		print "************************"
 		print "Allowed report types: customer / supplier" 
@@ -178,14 +180,14 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 		if driver.title[:12] ==  "Capital IQ R":
 			break
 
-	# 3 checks for the genreation completeness 
+	# 5 checks for the generation completeness 
 	# Each time, allow for the min download time to elapse 
 	# If status == "Failed", exit loop, return generation failure
 	download_attempts = 0
-	while download_attempts < 3 and success != True and success != "Failed": 
+	while download_attempts < 5 and success != True and success != "Failed": 
 		download_attempts += 1
-		print "Download attempt #", str(download_attempts)
-		sleep(min_wait_time)
+		print "Download attempt #", str(download_attempts), "Wait", str(min_wait_time-10), "sec"
+		sleep(min_wait_time - 10)
 		success, filename = downloadFile(driver, batch_no)
 
 	for handle in driver.window_handles:
