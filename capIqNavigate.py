@@ -186,8 +186,8 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 	download_attempts = 0
 	while download_attempts < 5 and success != True and success != "Failed": 
 		download_attempts += 1
-		print "Download attempt #", str(download_attempts), "Wait", str(min_wait_time-10), "sec"
-		sleep(min_wait_time - 10)
+		print "Download attempt #", str(download_attempts), "Wait", str(min_wait_time), "sec"
+		sleep(min_wait_time)
 		success, filename = downloadFile(driver, batch_no)
 
 	for handle in driver.window_handles:

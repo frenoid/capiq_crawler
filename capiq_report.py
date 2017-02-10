@@ -205,8 +205,8 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 				continue
 	
 
-			# Generate the report, min_wait_time is one-third of the full minimum wait time
-			min_wait_time = (len(sub_query_list)/3.0)
+			# Generate the report, min_wait_time is half of the full minimum wait time
+			min_wait_time = (len(sub_query_list)/2.0)
 			generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
 
 			if generateSuccess is True:
