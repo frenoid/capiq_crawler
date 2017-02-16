@@ -4,6 +4,7 @@ import xlrd
 from os import listdir, chdir
 from shutil import move, copy
 
+# Check if the Firefox download dir is clear of .xls files
 def isDownloadDirClear(download_dir):
 	is_download_dir_clear = True
 
@@ -15,6 +16,8 @@ def isDownloadDirClear(download_dir):
 	return is_download_dir_clear
 
 
+# Create main data structure: a dictionary
+# Key: Firm_name, Value: list of [company_id, batch_no]
 def getCompanyNamesInfo(code_name):
 	company_names_info = {}
 	ids_file_path = "./firm_lists/" + code_name + ".xlsx"
@@ -24,6 +27,7 @@ def getCompanyNamesInfo(code_name):
 	ws = master_table.active
 	print "Workbook %s loaded" % (ids_file_path)
 
+	# Find columns containing the companyname, CIQ ID, and the batch_no
 	for col_no in range(1, 20):
 		col_title = ws.cell(row=1, column=col_no).value
 
@@ -38,6 +42,9 @@ def getCompanyNamesInfo(code_name):
 	      % (company_name_col,company_id_col, batch_no_col)
 
 	company_names_info = {}
+
+	# Read the company info into memory, stopping when encountering an empty cell in col 1
+	# Max number of rows is 1 million
 	for row_no in range(2,1000000):
 		if ws.cell(row=row_no, column=1).value is None:
 			break
@@ -52,9 +59,11 @@ def getCompanyNamesInfo(code_name):
 
 	return company_names_info
 
-# Get list of excel files and iterate through them
+# From the downloaded file, find out what report type and batch number it is
+# Parameters are the downloaded file and the company_names_info dict
 def getTrueName(rawfile, company_names_info):
 	true_name = "Invalid"
+
 	try:
 		excel_file = xlrd.open_workbook(rawfile)
 	except IOError:
@@ -75,12 +84,12 @@ def getTrueName(rawfile, company_names_info):
 				excel_sheet = excel_file.sheet_by_name(sheet_name)
 				company_name = excel_sheet.cell(1, 0).value
 
-			# Where the data is out of alignment
+			# Where the data is out of alignment (unexpected cell arrangement)
 			except IndexError:
 				batch_no_vote.append(0)
 				continue
 
-			# No data => next sheet
+			# No data, then move to next worksheet
 			if company_name == "No Data":
 				batch_no_vote.append(0)
 				continue
@@ -145,6 +154,7 @@ def findMissing(downloaded_files, relations, last_batch):
 
 	return missing
 
+# Creates a list of firms by CIQ IQ to be downloaded
 def getBatchList(company_names_info, batch_no):
 	
 	# Batch creation
@@ -159,11 +169,15 @@ def getBatchList(company_names_info, batch_no):
 
 	return batch_list
 
+# In the case of nil return from adding firms to the Report Builder 
+# Create a empty dummy file with appropriate names
 def createDummyFile(batch_no, report_type):
 	if (report_type == "customer"):
 		dummy_file_name = "customers_batch_" + str(batch_no) + ".xls"
 	elif (report_type == "supplier"):
 		dummy_file_name = "suppliers_batch_" + str(batch_no) + ".xls"
+	elif (report_type == "corporate_tree"):
+		dummy_file_name = "corporateT_batch_" + str(batch_no) + ".xls"
 	else:
 		dummy_file_name = "unknown_batch_" + str(batch_no) + ".xls"
 
@@ -172,7 +186,8 @@ def createDummyFile(batch_no, report_type):
 
 	return dummy_file_name
 
-
+# Generate an expected download file name using
+# 1. report_type 2. number of firms AddFirms
 def getDownloadName(report_type, valid_firm_count):
 	# Produce an expected filename 
 	if report_type == "customer":
@@ -186,6 +201,8 @@ def getDownloadName(report_type, valid_firm_count):
 
 	return download_name
 
+# Shift all .xls files from one folder to another
+# Typically the default Firefox download dir to storage dir
 def moveAllExcelFiles(source_dir, destination_dir):
 	entries = listdir(source_dir)
 	files_moved = 0

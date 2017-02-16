@@ -121,31 +121,30 @@ def addFirms(driver, batch_list):
 
 	return valid_firm_count
 
+# This function attempts to get the download URL, it returns the download success and the filename
 def downloadFile(driver, batch_no):
 	download_success = False
 	filename = ""
 
 	try:
-		# Get file-name of the file in the first row of the table
+		# Get file-name of the file in the first row of the report generation window
 		filename_element = WebDriverWait(driver,3).until(\
                     	  	   EC.presence_of_element_located((\
                            	   By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[1]/div[1]")))
 		filename = filename_element.text + ".xls"
 
-		# Get the file-link of the file in the first row of the table
+		# Get the file-link of the file in the first row of the report generation window
 		file_link = WebDriverWait(driver,3).until(\
                    	    EC.presence_of_element_located((\
  		    	    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span/a")))
 	
-		# Check if URL is empty, if not download	    
+		# If file_url is not empty, then start downloading
 		file_url = file_link.get_attribute("href")
 		if file_url is not None:
 			print "Getting %s from url %s" % (filename, file_url)
 			driver.get(file_url)
 			print "Downloading batch file #" + str(batch_no)
 			download_success = True
-		else:
-			download_success = False
 
 	except TimeoutException:
 		file_status = WebDriverWait(driver,1).until(\
@@ -153,15 +152,12 @@ def downloadFile(driver, batch_no):
                               By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span")))
 		print "File status: %s" % (file_status.text)
 		
-		if file_status.text == "Failed":
-			download_success = "Failed"
-		else:
-			download_success = False
-	
 
 	return download_success, filename
 	
 
+# This function begins the report generation process, calls the download function repeatedly
+# It returns the download_success and the filename if available
 def generateReport(driver, batch_no, min_wait_time, download_id):
 	# Generate Report
 	sleep(2)
@@ -194,9 +190,6 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 		driver.switch_to.window(handle)
 		if driver.title[:12] ==  "Capital IQ R":
 			driver.close()
-
-	if success is "Failed":
-		success = False
 
 	return success, filename 
 
