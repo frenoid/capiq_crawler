@@ -1,7 +1,7 @@
 from openpyxl import Workbook, load_workbook
 from collections import Counter
 import xlrd
-from os import listdir, chdir
+from os import listdir, chdir, getcwd
 from shutil import move, copy
 
 # Check if the Firefox download dir is clear of .xls files
@@ -20,7 +20,8 @@ def isDownloadDirClear(download_dir):
 # Key: Firm_name, Value: list of [company_id, batch_no]
 def getCompanyNamesInfo(code_name):
 	company_names_info = {}
-	ids_file_path = "./firm_lists/" + code_name + ".xlsx"
+	cwd = getcwd()
+	ids_file_path = cwd + "/firm_lists/" + code_name + ".xlsx"
 
 	# Load workbooks into a dictionary of {'firm_name' : [company id, batch_no]}
 	master_table = load_workbook(ids_file_path)
@@ -218,6 +219,20 @@ def moveAllExcelFiles(source_dir, destination_dir):
 
 	return files_moved
 
+def moveAllPartialFiles(source_dir, destination_dir):
+	entries = listdir(source_dir)
+	files_moved = 0
+
+	for entry in entries:
+		if entry [-5:] == ".part":
+			try:
+				move(source_dir + entry, destination_dir +"/"+ entry)
+				files_moved += 1
+			except IOError:
+				print "%s could not be moved" % (entry)
+				continue
+
+	return files_moved
 
 	
 

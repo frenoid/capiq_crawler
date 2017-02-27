@@ -18,7 +18,7 @@ from os import chdir, remove, rename, listdir
 from shutil import copy
 from math import ceil
 from capIqNavigate import getReportType, capiqInitialize, capiqLogin, getValidFirmCount, addFirms, generateReport, capiqLogout
-from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles
+from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles
 from capIqAppendSubqueries import appendSubqueries
 from random import shuffle
 
@@ -82,19 +82,27 @@ def getDownloadList(company_names_info, argv):
 def renameBatchFile(batch_no, download_path, download_name, company_names_info):
 	final_name = "Invalid"
 	rename_success = False
-	wait_time = 15
+	wait_time = 10
+	total_wait_time = 0
 
 	# Check if the download is compelete by checking for .part files
 	download_success = False
-	while download_success is False:
+
+
+	while download_success is False and total_wait_time < 120:
 		downloaded_files = listdir(download_path)
 		download_success = True
 		for downloaded_file in downloaded_files:
 			if downloaded_file[-5:] == ".part":
-				print "Download incomplete. Wait", str(wait_time), "seconds"
+				print "Download incomplete. Total time waited: ", str(total_wait_time), "seconds"
 				download_success = False
 				sleep(wait_time)
+				total_wait_time += wait_time
 				break
+
+	# If download fails, return "Invalid" and rename_success = False
+	if download_success is False:
+		return final_name, rename_success
 
 	# When download is complete, search for the downloaded file to rename it
 	for index in range(len(downloaded_files)):
@@ -206,7 +214,7 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 	
 
 			# Generate the report, min_wait_time is half of the full minimum wait time
-			min_wait_time = (len(sub_query_list) * 0.5)
+			min_wait_time = ((len(sub_query_list) * 0.5) + 5)
 			generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
 
 			if generateSuccess is True:
@@ -216,8 +224,8 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 
 				rename_tries = 0
 				rename_success = False
-				while rename_tries < 5 and rename_success is not True:
-					sleep(15)
+				while rename_tries < 10 and rename_success is not True:
+					sleep(10)
 					rename_tries += 1
 					chdir(download_path)
 					final_name, rename_success = renameBatchFile(batch_no, download_path,\
@@ -321,14 +329,9 @@ for batch_no in download_list:
 		print "++++++++++++Batch # %d++++++++++++++++" % (batch_no)
 		batch_list = getBatchList(company_names_info, batch_no)
 
-		print "Downloading batch #%d. To download %d of %d"\
+		print "eownloading batch #%d. To download %d of %d"\
 		      % (batch_no, len(download_list), all_batch_count)
 
-		""" # Break every 15 batches
-		if batch_processed_count % 15 == 0 and batch_processed_count > 0:
-			print "10 sec break"
-			sleep(10)
-		"""
 
 		# Check if there have been more than 2 or more failures
 		# Wait the equivalent number of minutes
@@ -352,7 +355,7 @@ for batch_no in download_list:
 			continue
 
 		# Generate the report
-		min_wait_time = (batch_size/5.0)
+		min_wait_time = (batch_size/7.5)
 		generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
 
 		if generateSuccess is True:
@@ -389,6 +392,7 @@ for batch_no in download_list:
 		failed_batches[batch_no] = batch_list
 		continue
 
+	# On Ctrl + C, leave main-loop, proceed to printing summary stats and sub-queries
 	except KeyboardInterrupt:
 		print "!Exception: Keyboard interrupt"
 		print "Script is cleaning-up. Please wait."
@@ -398,8 +402,10 @@ for batch_no in download_list:
 	finally:
 		# Moving excel files to classification folder
 		final_path = download_path + code_name 
-		files_moved = moveAllExcelFiles(download_path, final_path)
-		print "%d excel files were moved to %s" % (files_moved, final_path)
+		excel_files_moved = moveAllExcelFiles(download_path, final_path)
+		print "%d excel files were moved to %s" % (excel_files_moved, final_path)
+		partial_files_moved = moveAllPartialFiles(download_path, final_path)
+		print "%d partial files were moved to %s" % (partial_files_moved, final_path)
 
 		# Clean-up and report query and download time
 		driver.switch_to.window(main_window)
@@ -422,7 +428,7 @@ print "%d successful batches, %d failed batches, success rate: %.2f"\
       % (batch_successful_count, batch_failed_count, success_rate)
 
 failed_batches = sorted(failed_batches.keys())
-print "Failed batches: ",
+print "Before sub-queries, Failed batches: ",
 for failed_batch_no in failed_batches:
 	print str(failed_batch_no),
 

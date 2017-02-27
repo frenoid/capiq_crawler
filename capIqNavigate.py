@@ -150,6 +150,9 @@ def downloadFile(driver, batch_no):
 		file_status = WebDriverWait(driver,1).until(\
                     	      EC.presence_of_element_located((\
                               By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span")))
+		if file_status.text == "Failed":
+			download_success = "Failed"
+
 		print "File status: %s" % (file_status.text)
 		
 
@@ -180,10 +183,12 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 	# Each time, allow for the min download time to elapse 
 	# If status == "Failed", exit loop, return generation failure
 	download_attempts = 0
-	while download_attempts < 5 and success != True and success != "Failed": 
+	total_wait_time = 0
+	while download_attempts < 6 and success == False: 
 		download_attempts += 1
-		print "Download attempt #", str(download_attempts), "Wait", str(min_wait_time), "sec"
 		sleep(min_wait_time)
+		total_wait_time += min_wait_time
+		print "Download attempt #", str(download_attempts), "Time waited", str(total_wait_time), "sec"
 		success, filename = downloadFile(driver, batch_no)
 
 	for handle in driver.window_handles:
