@@ -20,16 +20,23 @@ print "Last batch no: %d" % (last_batch)
 
 # Check if all files in the batch sequence exist
 # Record the missing batch numbers
+customers_missing = []
 if relations == "all" or relations == "customers":
 	customers_missing = findMissing(downloaded_files, "customers", last_batch)
-
+	
+suppliers_missing = []
 if relations == "all" or relations == "suppliers":
 	suppliers_missing = findMissing(downloaded_files, "suppliers", last_batch)
+
+if relations == "corporate_tree":
+	corptree_missing = findMissing(downloaded_files, "corporateT", last_batch)
 
 # Print out the missing batch numbers
 print "Missing customers: " + str(customers_missing)
 print ""
 print "Missing suppliers: " + str(suppliers_missing)
+print ""
+print "Missing corporate_tree: " + str(corptree_missing)
 
 print "End of program"
 
