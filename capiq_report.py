@@ -42,7 +42,7 @@ def getDownloadList(company_names_info, argv):
 		download_list = range(1, batch_total+1)
 	
 	# Get a list of batches
-	elif(query_type == "list"):
+	elif(query_type == "list" or query_type == "sub"):
 		download_list.extend(argv[5:]) 
 		for download_batch in download_list:
 			download_batch = int(download_batch)
@@ -87,7 +87,6 @@ def renameBatchFile(batch_no, download_path, download_name, company_names_info):
 
 	# Check if the download is compelete by checking for .part files
 	download_success = False
-
 
 	while download_success is False and total_wait_time < 120:
 		downloaded_files = listdir(download_path)
@@ -321,9 +320,20 @@ consec_failure_count = 0
 firms_processed_count = 0
 keyboard_interrupt_flag = False
 
+# Check if query_type is sub-query
+# If yes, move all batches into the failed_batch list
+# Skip the main download sequence by clearing the download_list
+if argv[4] == "sub":
+	for batch_no in download_list:
+		batch_no = int(batch_no)
+		failed_batches[batch_no]=getBatchList(company_names_info,\
+				                       batch_no)
+	download_list = []
+
 # Central loop: Terminates when the last batch is processed 
 # while batch_processed_count < len(download_list):
 for batch_no in download_list:
+
 	try:
 		batch_no = int(batch_no)
 		print "++++++++++++Batch # %d++++++++++++++++" % (batch_no)
@@ -418,19 +428,20 @@ for batch_no in download_list:
 
 
 """ Final print-out of summary statistics """
-# Count the successes and success rate
-batch_successful_count = batch_processed_count - batch_failed_count
-success_rate = 100.0*float(batch_successful_count)/float(batch_processed_count)
+if argv[4] != "sub":
+	# Count the successes and success rate
+	batch_successful_count = batch_processed_count - batch_failed_count
+	success_rate = 100.0*float(batch_successful_count)/float(batch_processed_count)
 
-print "Processing of %d firms in %d batches completed"\
-      % (firms_processed_count, len(download_list))
-print "%d successful batches, %d failed batches, success rate: %.2f"\
-      % (batch_successful_count, batch_failed_count, success_rate)
+	print "Processing of %d firms in %d batches completed"\
+      	      % (firms_processed_count, len(download_list))
+	print "%d successful batches, %d failed batches, success rate: %.2f"\
+      	      % (batch_successful_count, batch_failed_count, success_rate)
 
-failed_batches = sorted(failed_batches.keys())
-print "Before sub-queries, Failed batches: ",
-for failed_batch_no in failed_batches:
-	print str(failed_batch_no),
+	failed_batches = sorted(failed_batches.keys())
+	print "Before sub-queries, Failed batches: ",
+	for failed_batch_no in failed_batches:
+		print str(failed_batch_no),
 
 print ""
 
