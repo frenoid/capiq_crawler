@@ -4,6 +4,27 @@ import xlrd
 from os import listdir, chdir, getcwd
 from shutil import move, copy
 
+# Reads the download_dir path from .txt file and returns the path if valid
+def readDownloadDir(config_path):
+	current_dir = getcwd()
+	download_path = "Invalid"
+
+	with open(config_path) as f:
+		download_path = f.readline().rstrip("\n")
+
+	try:
+		chdir(download_path)
+		print  "Download_dir set to %s" % (download_path)
+
+	except OSError:
+		print "%s could not be opened" % (download_path)
+
+	finally:
+		chdir(current_dir)
+
+	return download_path
+
+
 # Check if the Firefox download dir is clear of .xls files
 def isDownloadDirClear(download_dir):
 	is_download_dir_clear = True
@@ -211,7 +232,7 @@ def moveAllExcelFiles(source_dir, destination_dir):
 	for entry in entries:
 		if entry [-5:] == ".xlsx" or entry[-4:] == ".xls":
 			try:
-				move(source_dir + entry, destination_dir +"/"+ entry)
+				move(source_dir+"/"+ entry, destination_dir +"/"+ entry)
 				files_moved += 1
 			except IOError:
 				print "%s could not be moved" % (entry)
@@ -226,7 +247,7 @@ def moveAllPartialFiles(source_dir, destination_dir):
 	for entry in entries:
 		if entry [-5:] == ".part":
 			try:
-				move(source_dir + entry, destination_dir +"/"+ entry)
+				move(source_dir+"/"+ entry, destination_dir +"/"+ entry)
 				files_moved += 1
 			except IOError:
 				print "%s could not be moved" % (entry)

@@ -18,7 +18,7 @@ from os import chdir, remove, rename, listdir
 from shutil import copy
 from math import ceil
 from capIqNavigate import getReportType, capiqInitialize, capiqLogin, getValidFirmCount, addFirms, generateReport, capiqLogout
-from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles
+from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles, readDownloadDir
 from capIqAppendSubqueries import appendSubqueries
 from random import shuffle
 
@@ -253,7 +253,7 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 		finally:
 			# Ensure focus is on main window
 			# Moving excel files to classification folder
-			final_path = download_path + code_name 
+			final_path = download_path +"/"+code_name 
 			files_moved = moveAllExcelFiles(download_path, final_path)
 			print "%d excel files were moved to %s"\
 			      % (files_moved, final_path)
@@ -263,7 +263,11 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 
 
 # 1: Check if there are enough arguments and if download directory is free of .xlsx files
-download_path = "C:/Users/faslxkn/downloads/"
+download_path = readDownloadDir("C:/Selenium/capitaliq/download_dir.txt")
+if download_path == "Invalid":
+	exit("Invalid download directory")
+
+
 if (len(argv) < 5):
 	print "%d arguments. Minimum is 4" % (len(argv)-1)
 	print "Arguments: <file_of_ids> <{customer/supplier}] " +\
@@ -411,7 +415,7 @@ for batch_no in download_list:
 
 	finally:
 		# Moving excel files to classification folder
-		final_path = download_path + code_name 
+		final_path = download_path +"/"+ code_name 
 		excel_files_moved = moveAllExcelFiles(download_path, final_path)
 		print "%d excel files were moved to %s" % (excel_files_moved, final_path)
 		partial_files_moved = moveAllPartialFiles(download_path, final_path)
