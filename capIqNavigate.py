@@ -28,13 +28,13 @@ def getReportType(download_type):
 	return download_id
 
 
-def capiqInitialize(report_page):
+def capiqInitialize(start_page):
 	profile = FirefoxProfile()
 	profile.set_preference("browser.helperApps.neverAsk.saveToDisk",\
 		       "application/vnd.ms-excel")
 
 	driver = webdriver.Firefox(firefox_profile = profile)
-	driver.get(report_page)
+	driver.get(start_page)
 	sleep(3)
 	print "Browser loaded"
 
@@ -52,9 +52,9 @@ def capiqLogin(driver, user_id, user_password):
 		password.send_keys(user_password)
 		signin.click()
 		print "Login info entered. Signing in."
+		sleep(10)
 
-		WebDriverWait(driver,30).until(EC.title_contains("Report Builder"))
-		if "Report Builder" in driver.title:
+		if "Report Builder" or "Company Screening" in driver.title:
 			print "Login successful: " + driver.title
 			login_success = True
 		else:
@@ -143,7 +143,7 @@ def downloadFile(driver, batch_no):
 		if file_url is not None:
 			print "Getting %s from url %s" % (filename, file_url)
 			driver.get(file_url)
-			print "Downloading batch file #" + str(batch_no)
+			# print "Downloading batch file #" + str(batch_no)
 			download_success = True
 
 	except TimeoutException:
