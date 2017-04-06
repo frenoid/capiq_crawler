@@ -17,7 +17,7 @@ from os import chdir, remove, rename, listdir
 from shutil import copy
 from math import ceil
 from capIqNavigate import capiqInitialize, capiqLogin, capiqLogout, generateReport, downloadFile
-from capIqLibrary import createDummyFile, getDownloadName,isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles, readDownloadDir
+from capIqLibrary import createDummyFile, getDownloadName,isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles, readDownloadDir, checkMakeDir, checkDownloadComplete
 
 def switchToOldScreening(driver):
 	try:
@@ -76,6 +76,7 @@ def setGicFilter(driver, gic_code):
 			          "_viewTopControl__numberOfResults"))
 				  )
 		firm_count = int(filter(lambda x: x.isdigit(), firm_count_elem.text))
+		screen_id = getScreenId(driver.current_url)
 	except (TimeoutException, NoSuchElementException):
 		exit("!Exception at getting firm count")
 
@@ -88,7 +89,7 @@ def setGicFilter(driver, gic_code):
 	except (TimeoutException, NoSuchElementException):
 		exit("!Exception at viewing results")
 
-	return firm_count
+	return firm_count, screen_id
 
 def setTemplate(driver, option):
 	sleep(3)
@@ -116,81 +117,80 @@ def setTemplate(driver, option):
 
 	return template_name
 
-def changePageNo(driver, page_no):
-	pass
+def changePageNo(driver, page_no, screen_id):
+
+	# Switch to correct page of 50,000 firms
+	# For firm count > 50000
+	if (page_no-1)%5==0 and page_no != 1:
+
+		# Return to the screen selection page
+		assert "Screening Results" in driver.title
+		screen_url = "https://www.capitaliq.com/CIQDotNet/Screening/ScreenBuilder.aspx?UniqueScreenId=" + screen_id + "&clear=all&returntooriginal=1#"
+		driver.get(screen_url)
+
+		# Switch to the correct set of 50,000 firms
+		sleep(10)
+		driver.switch_to_frame("CriterionResultsFrame")
+		view_range_menu = WebDriverWait(driver, 15).until(
+				  EC.element_to_be_clickable((By.ID,
+				  "_viewTopControl__range"))
+				  )
+		if page_no == 6:
+			view_range_menu.send_keys("50001")
+		elif page_no == 11:
+			view_range_menu.send_keys("100001")
+		elif page_no == 16:
+			view_range_menu.send_keys("150001")
+		elif page_no == 21:
+			view_range_menu.send_keys("200001")
+
+		# View results
+		view_results = WebDriverWait(driver,15).until(
+			       EC.element_to_be_clickable((By.ID,
+			       "_viewTopControl__resultsLink"))
+			       )
+		view_results.click()
+
+	# Switch to correct set of 0 - 50000 firms
+	try:
+		export_menu = WebDriverWait(driver, 30).until(
+			      EC.element_to_be_clickable((By.ID,
+			      "_displayOptions_Displaysection1_ReportingOptions_NumberOfTargetsExcel"))
+			      )
+		if (page_no % 5) != 1:
+			export_menu.click()
+			if page_no % 5 == 2:
+				export_menu.send_keys("10001")
+			elif page_no % 5 == 3:
+				export_menu.send_keys("20001")
+			elif page_no % 5 == 4:
+				export_menu.send_keys("30001")
+			elif page_no % 5 == 0:
+				export_menu.send_keys("40001")
+			export_menu.send_keys(Keys.ENTER)
+	finally:
+		pass
+
+	
+	print "Switched to %d th firms" % ((page_no-1)*10000)
+
 
 	return
 
-def renameBatchFile(batch_no, download_path, download_name, company_names_info):
-	final_name = "Invalid"
+def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 	rename_success = False
-	wait_time = 10
-	total_wait_time = 0
+	final_name = gic_code + "_" + str(page_no) + "_of_"\
+		     + str(page_total) + ".xls"
+	entries = listdir(download_path)
 
-	# Check if the download is compelete by checking for .part files
-	download_success = False
-
-	while download_success is False and total_wait_time < 120:
-		downloaded_files = listdir(download_path)
-		download_success = True
-		for downloaded_file in downloaded_files:
-			if downloaded_file[-5:] == ".part":
-				print "Download incomplete. Total time waited: ", str(total_wait_time), "seconds"
-				download_success = False
-				sleep(wait_time)
-				total_wait_time += wait_time
-				break
-
-	# If download fails, return "Invalid" and rename_success = False
-	if download_success is False:
-		return final_name, rename_success
-
-	# When download is complete, search for the downloaded file to rename it
-	for index in range(len(downloaded_files)):
-		actual_name = str(downloaded_files[index])
-
-		## Use 2 methods to generate the filename, if they agree, rename the file
-		## if not use batch no to rename the file, but mark the file with "star_"
-
-		# method 1: matching firm name with master table
-		# true_name is what the file will be renamed to
-		if actual_name == download_name:
-			true_name = getTrueName(actual_name, company_names_info)
-
-		# method 2: check download batch no and file name
-			if actual_name[-13:] == "Suppliers.xls":
-				batch_filename = "suppliers_batch_" + str(batch_no) + ".xls"
-			elif actual_name[-13:] == "Customers.xls":		
-				batch_filename = "customers_batch_" + str(batch_no) + ".xls"
-			elif actual_name[-17:] == "CorporateTree.xls":
-				batch_filename = "corporateT_batch_" + str(batch_no) + ".xls"
-
-			try:
-				# Where the 2 methods agree or getTrueName returns "Invalid"
-				if true_name == batch_filename or true_name is "Invalid":
-					rename(actual_name, batch_filename)
-					final_name = batch_filename
-
-					print "Batch agrees with master, File renamed to %s"\
-					      % (batch_filename)
-
-				# Where the 2 methods disagree
-				else:
-					rename(actual_name, "star_" + batch_filename)
-					final_name = "star_" + batch_filename
-					print "Batch different from master, File renamed to %s"\
-					      % ("star_" + batch_filename)
-
-				rename_success = True
-				break
-			except WindowsError:
-				print batch_filename + " used by another file"
-				rename_success = True
-				break
-	if rename_success == False:
-		print "Rename process unsuccessful"
-
-	return final_name, rename_success
+	for entry in entries:
+		if entry == download_name:
+			rename(download_path+"/"+entry,\
+			       download_path+"/"+final_name)
+			print "%s renamed to %s" % (entry, final_name)
+			rename_success = True
+	
+	return rename_success, final_name
 
 # 0: Program starts: check arguments
 print "********** Capital IQ mass screening downloader *********"
@@ -198,13 +198,17 @@ if (len(argv) < 2):
 	print "Format: python mass_screening.py <GIC_CODE>"
 	exit("Insufficient arguments")
 
+target_gic = argv[1]
+
 # 1: Check if download directory is free of excel files
 download_path = readDownloadDir("C:/Selenium/capitaliq/download_dir.txt")
 if download_path == "Invalid":
 	exit("Invalid download directory")
-
 if isDownloadDirClear(download_path) is False:
 	exit("Download dir is not clear. Remove all .xls and .xlsx files")
+
+final_path = download_path + "/" + target_gic
+checkMakeDir(final_path)
 
 
 # 2: Initialize the brower and load Capital IQ 
@@ -239,8 +243,7 @@ while True:
 		wait_time += 5
 
 # 3. Set filter to target GIC code and get number of firms
-target_gic = argv[1]
-total_firm_count = setGicFilter(driver, target_gic)
+total_firm_count, screen_id = setGicFilter(driver, target_gic)
 print "Filter set: %d firms in %s" % (total_firm_count, target_gic)
 
 # 4. Set correct variable template
@@ -253,15 +256,44 @@ print "Template set: %s" % (template_name)
 total_files = int(ceil(float(total_firm_count)/10000.0))
 download_list = range(1, total_files+1)
 print "Download list: %s" % (str(download_list))
+print "***** Download Commenced *****"
 
 for download_no in download_list:
-	if download_no != 1:
-		changePageNo(download_no)	
+	print "=== File %d of %d ===" % (download_no, len(download_list))
+	try:
+		# Change to approriate page number
+		if download_no != 1:
+			changePageNo(driver, download_no, screen_id)	
 
-	success = False
-	attempt_no = 0
-	while success == False and attempt_no < 3:
-		success, filename = generateReport(driver, 0, 30, "_displayOptions_Displaysection1_ReportingOptions_GoButton")
-		attempt_no += 1
+		# Get download link and download
+		success = False
+		attempt_no = 0
+		while success == False and attempt_no < 3:
+			success, filename = generateReport(driver, 0, 30, "_displayOptions_Displaysection1_ReportingOptions_GoButton")
+			attempt_no += 1
 
+		# Ensure the download is done	
+		sleep(5)
+		download_complete = False
+		total_wait_time = 0
+		while download_complete == False and total_wait_time < 120:
+			download_complete = checkDownloadComplete(download_path)
+			if download_complete == False:
+				sleep(10)
+				print "Download incomplete. Time elapsed %d"\
+				      % (total_wait_time)
+				total_wait_time += 10
+
+		# Rename to download file accordingly
+		renameMassFile(download_path, filename,\
+			       target_gic,download_no, len(download_list))
+				
+	finally:
+		excel_files_moved = moveAllExcelFiles(download_path, final_path)
+		print "%d .xls files moved" % (excel_files_moved)
+		partial_files_moved = moveAllPartialFiles(download_path, final_path)
+		print "%d .part files moved" % (partial_files_moved)
+		driver.switch_to_window(main_window)
+
+capiqLogout(driver, main_window)
 print "Script End"

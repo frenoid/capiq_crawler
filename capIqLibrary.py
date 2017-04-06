@@ -1,7 +1,7 @@
 from openpyxl import Workbook, load_workbook
 from collections import Counter
 import xlrd
-from os import listdir, chdir, getcwd
+from os import listdir, chdir, getcwd, mkdir
 from shutil import move, copy
 
 # Reads the download_dir path from .txt file and returns the path if valid
@@ -36,6 +36,21 @@ def isDownloadDirClear(download_dir):
 
 	return is_download_dir_clear
 
+# Check if the dir exists, if not, create it
+def checkMakeDir(dir_path):
+	current_dir = getcwd()
+
+	try:
+		chdir(dir_path)
+		print "%s exists" % (dir_path)
+	except OSError:
+		mkdir(dir_path)
+		print "%s was created" % (dir_path)
+
+	finally:
+		chdir(current_dir)
+
+	return
 
 # Create main data structure: a dictionary
 # Key: Firm_name, Value: list of [company_id, batch_no]
@@ -254,6 +269,17 @@ def moveAllPartialFiles(source_dir, destination_dir):
 				continue
 
 	return files_moved
+
+# Check if the download is complete by checking the download_dir for .part files
+def checkDownloadComplete(download_path):
+	entries = listdir(download_path)
+
+	for entry in entries:
+		if entry [-5:] == ".part":
+			return False
+
+	return True
+
 
 	
 

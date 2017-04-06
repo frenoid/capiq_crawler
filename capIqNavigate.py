@@ -128,13 +128,13 @@ def downloadFile(driver, batch_no):
 
 	try:
 		# Get file-name of the file in the first row of the report generation window
-		filename_element = WebDriverWait(driver,3).until(\
+		filename_element = WebDriverWait(driver,5).until(\
                     	  	   EC.presence_of_element_located((\
                            	   By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[1]/div[1]")))
 		filename = filename_element.text + ".xls"
 
 		# Get the file-link of the file in the first row of the report generation window
-		file_link = WebDriverWait(driver,3).until(\
+		file_link = WebDriverWait(driver,5).until(\
                    	    EC.presence_of_element_located((\
  		    	    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span/a")))
 	
