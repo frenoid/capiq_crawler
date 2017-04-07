@@ -143,7 +143,16 @@ def changePageNo(driver, page_no, screen_id):
 			view_range_menu.send_keys("150001")
 		elif page_no == 21:
 			view_range_menu.send_keys("200001")
-
+		elif page_no == 26:
+			view_range_menu.send_keys("250001")
+		elif page_no == 31:
+			view_range_menu.send_keys("300001")
+		elif page_no == 36:
+			view_range_menu.send_keys("350001")
+		elif page_no == 41:
+			view_range_menu.send_keys("400001")
+		elif page_no == 46:
+			view_range_menu.send_keys("450001")
 		# View results
 		view_results = WebDriverWait(driver,15).until(
 			       EC.element_to_be_clickable((By.ID,
@@ -255,6 +264,7 @@ print "Template set: %s" % (template_name)
 # 5. Create download list, one file for every 10,000 firms
 total_files = int(ceil(float(total_firm_count)/10000.0))
 download_list = range(1, total_files+1)
+failed_page_downloads = []
 print "Download list: %s" % (str(download_list))
 print "***** Download Commenced *****"
 
@@ -287,6 +297,13 @@ for download_no in download_list:
 		# Rename to download file accordingly
 		renameMassFile(download_path, filename,\
 			       target_gic,download_no, len(download_list))
+
+	except(TimeoutException, NoSuchElementException, UnexpectedAlertPresentException) as exception_type:
+		print "!Exception of type", exception_type, "encountered"
+		failed_page_downloads.append(download_no)
+		driver.switch_to_window(main_window)
+		driver.get(current_url)
+		sleep(10)
 				
 	finally:
 		excel_files_moved = moveAllExcelFiles(download_path, final_path)
@@ -295,5 +312,6 @@ for download_no in download_list:
 		print "%d .part files moved" % (partial_files_moved)
 		driver.switch_to_window(main_window)
 
+print "Failed pages:", str(failed_page_downloads)
 capiqLogout(driver, main_window)
 print "Script End"
