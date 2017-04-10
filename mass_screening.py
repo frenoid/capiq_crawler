@@ -19,6 +19,7 @@ from math import ceil
 from capIqNavigate import capiqInitialize, capiqLogin, capiqLogout, generateReport, downloadFile
 from capIqLibrary import createDummyFile, getDownloadName,isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles, readDownloadDir, checkMakeDir, checkDownloadComplete
 
+# Uses the old company screening interface
 def switchToOldScreening(driver):
 	try:
 		old_switch = WebDriverWait(driver, 30).until(
@@ -27,10 +28,12 @@ def switchToOldScreening(driver):
 		old_switch.click()
 		sleep(3)
 	except (TimeoutException, NoSuchElementException):
+		driver.quit
 		exit("!Exception at switching to old interface")
 
 	return 
 
+# Get the numerical screening ID
 def getScreenId(browser_url):
 
 	begin = browser_url.find("UniqueScreenId=")
@@ -41,58 +44,54 @@ def getScreenId(browser_url):
 
 	return screen_id
 
+# Set the correct GIC code to filter firms
 def setGicFilter(driver, gic_code):
-	try:
-		screening_search = WebDriverWait(driver, 30).until(
-				   EC.presence_of_element_located((By.ID, "SearchDataPointsAutoCompleteTextBoxPhase2"))
-				   )
+	# Enter the GIC code in the search box
+	screening_search = WebDriverWait(driver, 30).until(
+			   EC.presence_of_element_located((By.ID, "SearchDataPointsAutoCompleteTextBoxPhase2"))
+			   )
 
-		screening_search.send_keys(gic_code)
-		sleep(1)
-		# screening_search.send_keys(Keys.ENTER)
-	except (TimeoutException, NoSuchElementException):
-		exit("!Exception when entering GIC Code")
+	screening_search.send_keys(gic_code)
+	sleep(1)
+	# screening_search.send_keys(Keys.ENTER)
 
-	try:
-		sleep(5)
-		sub_search = WebDriverWait(driver,10).until(
-			     EC.presence_of_element_located((By.XPATH,\
-                             "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/div[2]/a"))
-			     )
-		sub_search.click()
-		sleep(3)
-		screening_search.send_keys(Keys.ENTER)
+	# Click on the first result
+	sleep(5)
+	sub_search = WebDriverWait(driver,10).until(
+		     EC.presence_of_element_located((By.XPATH,\
+                     "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/div[2]/a"))
+		     )
+	sub_search.click()
+	sleep(3)
+	screening_search.send_keys(Keys.ENTER)
+	print "Criterion added"
 
-		print "Criterion added"
-		sleep(3)
-		driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-	except (TimeoutException, NoSuchElementException):
-		exit("!Exception at adding GIC criterion")
+	# Scroll to the bottom of the page
+	sleep(3)
+	driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
-	try:
-		driver.switch_to_frame("CriterionResultsFrame")
-		firm_count_elem = WebDriverWait(driver,15).until(
-				  EC.element_to_be_clickable((By.ID,
-			          "_viewTopControl__numberOfResults"))
-				  )
-		firm_count = int(filter(lambda x: x.isdigit(), firm_count_elem.text))
-		screen_id = getScreenId(driver.current_url)
-	except (TimeoutException, NoSuchElementException):
-		exit("!Exception at getting firm count")
 
-	try:
-		view_results = WebDriverWait(driver,15).until(
-				EC.element_to_be_clickable((By.ID,
-				"_viewTopControl__resultsLink"))
-				)
-		view_results.click()
-	except (TimeoutException, NoSuchElementException):
-		exit("!Exception at viewing results")
+	# In the results frame, get the number of firms, the view results
+	driver.switch_to_frame("CriterionResultsFrame")
+	firm_count_elem = WebDriverWait(driver,15).until(
+			  EC.element_to_be_clickable((By.ID,
+		          "_viewTopControl__numberOfResults"))
+			  )
+	firm_count = int(filter(lambda x: x.isdigit(), firm_count_elem.text))
+	screen_id = getScreenId(driver.current_url)
+
+	view_results = WebDriverWait(driver,15).until(
+			EC.element_to_be_clickable((By.ID,
+			"_viewTopControl__resultsLink"))
+			)
+	view_results.click()
 
 	return firm_count, screen_id
 
+# Sets the correct template to get the correct variables
 def setTemplate(driver, option):
 	sleep(3)
+	option = int(option)
 	template_name = "Invalid"
 	if "Screening Results" not in driver.title:
 		exit("!Exception. Not in screening page")
@@ -105,8 +104,11 @@ def setTemplate(driver, option):
 	sleep(3)
 
 	if option == 1:
-		drop_down.send_keys("mass_extraction")
-		template_name = "mass_extraction_1"
+		drop_down.send_keys("1_mass")
+		template_name = "1_mass"
+	elif option == 2:
+		drop_down.send_keys("2_mass")
+		template_name = "2_mass"
 
 	set_template=WebDriverWait(driver,15).until(
 	     	     EC.element_to_be_clickable((By.ID,
@@ -117,6 +119,7 @@ def setTemplate(driver, option):
 
 	return template_name
 
+# Change to the correct set of 10,000 or 50,000 firms
 def changePageNo(driver, page_no, screen_id):
 
 	# Switch to correct page of 50,000 firms
@@ -186,6 +189,7 @@ def changePageNo(driver, page_no, screen_id):
 
 	return
 
+# Rename the downloaded file according to its GIC code and page number
 def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 	rename_success = False
 	final_name = gic_code + "_" + str(page_no) + "_of_"\
@@ -208,6 +212,7 @@ if (len(argv) < 2):
 	exit("Insufficient arguments")
 
 target_gic = argv[1]
+template_no = argv[2]
 
 # 1: Check if download directory is free of excel files
 download_path = readDownloadDir("C:/Selenium/capitaliq/download_dir.txt")
@@ -251,20 +256,27 @@ while True:
 		sleep(5)
 		wait_time += 5
 
-# 3. Set filter to target GIC code and get number of firms
-total_firm_count, screen_id = setGicFilter(driver, target_gic)
-print "Filter set: %d firms in %s" % (total_firm_count, target_gic)
+# 3. Set GIC filter and variable template
+try:
+	# Set filter to target GIC code and get number of firms
+	total_firm_count, screen_id = setGicFilter(driver, target_gic)
+	print "Filter set: %d firms in %s" % (total_firm_count, target_gic)
 
-# 4. Set correct variable template
-template_name = setTemplate(driver, 1)
-if template_name == "Invalid":
-	exit("Invalid template name")
-print "Template set: %s" % (template_name)
+	# Set correct variable template
+	template_name = setTemplate(driver, template_no)
+	if template_name == "Invalid":
+		driver.quit()
+		exit("Invalid template name")
+	print "Template set: %s" % (template_name)
+except(TimeoutException, NoSuchElementException):
+	driver.quit()
+	exit("!Exception while setting GIC filter and template")
 
-# 5. Create download list, one file for every 10,000 firms
+# 4. Create download list, one file for every 10,000 firms
 total_files = int(ceil(float(total_firm_count)/10000.0))
 download_list = range(1, total_files+1)
 failed_page_downloads = []
+sleep(15)
 print "Download list: %s" % (str(download_list))
 print "***** Download Commenced *****"
 
@@ -286,7 +298,7 @@ for download_no in download_list:
 		sleep(5)
 		download_complete = False
 		total_wait_time = 0
-		while download_complete == False and total_wait_time < 120:
+		while download_complete == False and total_wait_time < 180:
 			download_complete = checkDownloadComplete(download_path)
 			if download_complete == False:
 				sleep(10)

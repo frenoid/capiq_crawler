@@ -166,7 +166,7 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 	sleep(2)
 	filename = ""
 	success = False
-	generate_report = WebDriverWait(driver,15).until(\
+	generate_report = WebDriverWait(driver,30).until(\
                     	  EC.presence_of_element_located((\
 			  By.ID, download_id)))
 
