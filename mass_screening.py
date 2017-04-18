@@ -325,7 +325,7 @@ for download_no in download_list:
 		print "!Exception of type", exception_type, "encountered"
 		failed_page_downloads.append(download_no)
 		driver.switch_to_window(main_window)
-		driver.get(current_url)
+		driver.get(driver.current_url)
 		sleep(10)
 				
 	finally:
