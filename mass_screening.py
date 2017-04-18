@@ -10,6 +10,7 @@ from selenium.common.exceptions import UnexpectedAlertPresentException
 from selenium.common.exceptions import NoAlertPresentException 
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from time import sleep, time, localtime, strftime
@@ -55,13 +56,18 @@ def setGicFilter(driver, gic_code):
 	sleep(1)
 	# screening_search.send_keys(Keys.ENTER)
 
-	# Click on the first result
+	# Click on the first result, then choose primary only
 	sleep(5)
-	sub_search = WebDriverWait(driver,10).until(
+	sub_search = WebDriverWait(driver,15).until(
 		     EC.presence_of_element_located((By.XPATH,\
                      "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/div[2]/a"))
 		     )
 	sub_search.click()
+	primary_only = WebDriverWait(driver,15).until(
+		       EC.element_to_be_clickable((By.XPATH,\
+		       "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/a/span/b"))
+		       )
+	primary_only.click()
 	sleep(3)
 	screening_search.send_keys(Keys.ENTER)
 	print "Criterion added"
@@ -156,6 +162,8 @@ def changePageNo(driver, page_no, screen_id):
 			view_range_menu.send_keys("400001")
 		elif page_no == 46:
 			view_range_menu.send_keys("450001")
+		elif page_no == 51:
+			view_range_menu.send_keys("500001")
 		# View results
 		view_results = WebDriverWait(driver,15).until(
 			       EC.element_to_be_clickable((By.ID,
@@ -291,6 +299,8 @@ for download_no in download_list:
 		success = False
 		attempt_no = 0
 		while success == False and attempt_no < 3:
+			
+			#Check for the download button
 			success, filename = generateReport(driver, 0, 30, "_displayOptions_Displaysection1_ReportingOptions_GoButton")
 			attempt_no += 1
 
@@ -310,7 +320,8 @@ for download_no in download_list:
 		renameMassFile(download_path, filename,\
 			       target_gic,download_no, len(download_list))
 
-	except(TimeoutException, NoSuchElementException, UnexpectedAlertPresentException) as exception_type:
+	except(TimeoutException, NoSuchElementException,\
+	       UnexpectedAlertPresentException,StaleElementReferenceException) as exception_type:
 		print "!Exception of type", exception_type, "encountered"
 		failed_page_downloads.append(download_no)
 		driver.switch_to_window(main_window)

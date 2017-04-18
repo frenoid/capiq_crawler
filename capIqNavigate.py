@@ -149,11 +149,14 @@ def downloadFile(driver, batch_no):
 	except TimeoutException:
 		file_status = WebDriverWait(driver,1).until(\
                     	      EC.presence_of_element_located((\
-                              By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span")))
-		if file_status.text == "Failed":
+                              By.XPATH,\
+			      "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span"))
+			      ).text
+
+		if file_status == "Failed":
 			download_success = "Failed"
 
-		print "File status: %s" % (file_status.text)
+		print "File status: %s" % (file_status)
 		
 
 	return download_success, filename
@@ -167,8 +170,9 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 	filename = ""
 	success = False
 	generate_report = WebDriverWait(driver,30).until(\
-                    	  EC.presence_of_element_located((\
-			  By.ID, download_id)))
+                    	  EC.element_to_be_clickable((\
+			  By.ID, download_id))
+			  )
 
 	generate_report.click()
 	print "Generating Report"
@@ -184,7 +188,7 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 	# If status == "Failed", exit loop, return generation failure
 	download_attempts = 0
 	total_wait_time = 0
-	while download_attempts < 6 and success == False: 
+	while download_attempts < 12 and success == False: 
 		download_attempts += 1
 		sleep(min_wait_time)
 		total_wait_time += min_wait_time
