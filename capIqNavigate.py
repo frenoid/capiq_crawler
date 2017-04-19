@@ -164,7 +164,7 @@ def downloadFile(driver, batch_no):
 
 # This function begins the report generation process, calls the download function repeatedly
 # It returns the download_success and the filename if available
-def generateReport(driver, batch_no, min_wait_time, download_id):
+def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 	# Generate Report
 	sleep(2)
 	filename = ""
@@ -188,7 +188,7 @@ def generateReport(driver, batch_no, min_wait_time, download_id):
 	# If status == "Failed", exit loop, return generation failure
 	download_attempts = 0
 	total_wait_time = 0
-	while download_attempts < 12 and success == False: 
+	while total_wait_time < max_wait_time and success == False: 
 		download_attempts += 1
 		sleep(min_wait_time)
 		total_wait_time += min_wait_time

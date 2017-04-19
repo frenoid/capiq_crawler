@@ -115,6 +115,9 @@ def setTemplate(driver, option):
 	elif option == 2:
 		drop_down.send_keys("2_mass")
 		template_name = "2_mass"
+	elif option == 3:
+		drop_down.send_keys("3_mass")
+		template_name = "3_mass"
 
 	set_template=WebDriverWait(driver,15).until(
 	     	     EC.element_to_be_clickable((By.ID,
@@ -295,14 +298,11 @@ for download_no in download_list:
 		if download_no != 1:
 			changePageNo(driver, download_no, screen_id)	
 
-		# Get download link and download
-		success = False
-		attempt_no = 0
-		while success == False and attempt_no < 3:
-			
-			#Check for the download button
-			success, filename = generateReport(driver, 0, 30, "_displayOptions_Displaysection1_ReportingOptions_GoButton")
-			attempt_no += 1
+		# Initiate download, allow max of 4.5 minutes for download to generate
+		min_wait_time = 30
+		max_wait_time = min_wait_time * 9
+		success, filename = generateReport(driver, 0, min_wait_time,\
+					    max_wait_time, "_displayOptions_Displaysection1_ReportingOptions_GoButton")
 
 		# Ensure the download is done	
 		sleep(5)
@@ -320,6 +320,7 @@ for download_no in download_list:
 		renameMassFile(download_path, filename,\
 			       target_gic,download_no, len(download_list))
 
+	# If exception, return to screening page, try next page
 	except(TimeoutException, NoSuchElementException,\
 	       UnexpectedAlertPresentException,StaleElementReferenceException) as exception_type:
 		print "!Exception of type", exception_type, "encountered"

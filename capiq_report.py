@@ -214,7 +214,9 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 
 			# Generate the report, min_wait_time is half of the full minimum wait time
 			min_wait_time = ((len(sub_query_list) * 0.5) + 5)
-			generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
+			max_wait_time = min_wait_time * 6
+			generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time,\
+							 max_wait_time, download_id)
 
 			if generateSuccess is True:
 				# Rename the downloaded file, 3 tries allowed
@@ -370,7 +372,9 @@ for batch_no in download_list:
 
 		# Generate the report
 		min_wait_time = (batch_size/7.5)
-		generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time, download_id)
+		max_wait_time = min_wait_time * 9
+		generateSuccess, download_name = generateReport(driver, batch_no, min_wait_time,\
+								max_wait_time, download_id)
 
 		if generateSuccess is True:
 			if consec_failure_count > 0:
