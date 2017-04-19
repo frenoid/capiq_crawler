@@ -127,6 +127,13 @@ def downloadFile(driver, batch_no):
 	filename = ""
 
 	try:
+		# Switch to the report generation window
+		# Ensure that this window is in focus
+		for handle in driver.window_handles:
+			driver.switch_to.window(handle)
+			if driver.title[:12] ==  "Capital IQ Report Status":
+				break
+
 		# Get file-name of the file in the first row of the report generation window
 		filename_element = WebDriverWait(driver,5).until(\
                     	  	   EC.presence_of_element_located((\
@@ -147,7 +154,7 @@ def downloadFile(driver, batch_no):
 			download_success = True
 
 	except TimeoutException:
-		file_status = WebDriverWait(driver,1).until(\
+		file_status = WebDriverWait(driver,3).until(\
                     	      EC.presence_of_element_located((\
                               By.XPATH,\
 			      "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span"))
@@ -169,7 +176,7 @@ def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 	sleep(2)
 	filename = ""
 	success = False
-	generate_report = WebDriverWait(driver,30).until(\
+	generate_report = WebDriverWait(driver,60).until(\
                     	  EC.element_to_be_clickable((\
 			  By.ID, download_id))
 			  )
@@ -177,15 +184,9 @@ def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 	generate_report.click()
 	print "Generating Report"
 
-	# Switch to the Download progress windows
-	for handle in driver.window_handles:
-		driver.switch_to.window(handle)
-		if driver.title[:12] ==  "Capital IQ R":
-			break
 
-	# 5 checks for the generation completeness 
 	# Each time, allow for the min download time to elapse 
-	# If status == "Failed", exit loop, return generation failure
+	# If status == "Failed" or max_wait_time is exceeded, exit loop, return generation failure
 	download_attempts = 0
 	total_wait_time = 0
 	while total_wait_time < max_wait_time and success == False: 
