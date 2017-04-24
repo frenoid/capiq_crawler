@@ -148,6 +148,7 @@ def downloadFile(driver, batch_no):
 		# If file_url is not empty, then start downloading
 		file_url = file_link.get_attribute("href")
 		if file_url is not None:
+			print ""
 			print "Getting %s from url %s" % (filename, file_url)
 			driver.get(file_url)
 			# print "Downloading batch file #" + str(batch_no)
@@ -162,8 +163,9 @@ def downloadFile(driver, batch_no):
 
 		if file_status == "Failed":
 			download_success = "Failed"
+			print ""
 
-		print "File status: %s" % (file_status)
+		# print "File status: %s" % (file_status)
 		
 
 	return download_success, filename
@@ -187,19 +189,19 @@ def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 
 	# Each time, allow for the min download time to elapse 
 	# If status == "Failed" or max_wait_time is exceeded, exit loop, return generation failure
-	download_attempts = 0
 	total_wait_time = 0
+	print "Time waited:",
 	while total_wait_time < max_wait_time and success == False: 
-		download_attempts += 1
 		sleep(min_wait_time)
 		total_wait_time += min_wait_time
-		print "Download attempt #", str(download_attempts), "Time waited", str(total_wait_time), "sec"
+		print str(total_wait_time), "sec",
 		success, filename = downloadFile(driver, batch_no)
 
 	for handle in driver.window_handles:
 		driver.switch_to.window(handle)
 		if driver.title[:12] ==  "Capital IQ R":
 			driver.close()
+
 
 	return success, filename 
 

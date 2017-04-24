@@ -124,7 +124,12 @@ def setTemplate(driver, option):
 	   	     "_displayOptions_Displaysection1_GoButton"))
 		     )
 	set_template.click()
+	sleep(5)
 
+	WebDriverWait(driver,120).until(
+	EC.element_to_be_clickable((By.ID,
+	"_displayOptions_Displaysection1_ReportingOptions_GoButton"))
+	)
 
 	return template_name
 
@@ -147,26 +152,11 @@ def changePageNo(driver, page_no, screen_id):
 				  EC.element_to_be_clickable((By.ID,
 				  "_viewTopControl__range"))
 				  )
-		if page_no == 6:
-			view_range_menu.send_keys("50001")
-		elif page_no == 11:
-			view_range_menu.send_keys("100001")
-		elif page_no == 16:
-			view_range_menu.send_keys("150001")
-		elif page_no == 21:
-			view_range_menu.send_keys("200001")
-		elif page_no == 26:
-			view_range_menu.send_keys("250001")
-		elif page_no == 31:
-			view_range_menu.send_keys("300001")
-		elif page_no == 36:
-			view_range_menu.send_keys("350001")
-		elif page_no == 41:
-			view_range_menu.send_keys("400001")
-		elif page_no == 46:
-			view_range_menu.send_keys("450001")
-		elif page_no == 51:
-			view_range_menu.send_keys("500001")
+
+		# Set view-range by selecting the first firm no
+		first_firm_no = (page_no * 10000) - 9999
+		view_range_menu.send_keys(str(first_firm_no))
+
 		# View results
 		view_results = WebDriverWait(driver,15).until(
 			       EC.element_to_be_clickable((By.ID,
@@ -272,7 +262,11 @@ try:
 	# Set filter to target GIC code and get number of firms
 	total_firm_count, screen_id = setGicFilter(driver, target_gic)
 	print "Filter set: %d firms in %s" % (total_firm_count, target_gic)
+except(TimeoutException, NoSuchElementException):
+	driver.quit()
+	exit("!Exception while setting GIC filter")
 
+try:
 	# Set correct variable template
 	template_name = setTemplate(driver, template_no)
 	if template_name == "Invalid":
@@ -281,7 +275,7 @@ try:
 	print "Template set: %s" % (template_name)
 except(TimeoutException, NoSuchElementException):
 	driver.quit()
-	exit("!Exception while setting GIC filter and template")
+	exit("!Exception while setting template")
 
 # 4. Create download list, one file for every 10,000 firms
 total_files = int(ceil(float(total_firm_count)/10000.0))
@@ -298,9 +292,10 @@ for download_no in download_list:
 		if download_no != 1:
 			changePageNo(driver, download_no, screen_id)	
 
-		# Initiate download, allow max of 4.5 minutes for download to generate
+
+		# Initiate download, allow max of 6 minutes for download to generate
 		min_wait_time = 30
-		max_wait_time = min_wait_time * 9
+		max_wait_time = min_wait_time * 12
 		success, filename = generateReport(driver, 0, min_wait_time,\
 					    max_wait_time, "_displayOptions_Displaysection1_ReportingOptions_GoButton")
 
@@ -308,12 +303,12 @@ for download_no in download_list:
 		sleep(5)
 		download_complete = False
 		total_wait_time = 0
+		print "Downloading. Time elapsed:",
 		while download_complete == False and total_wait_time < 180:
 			download_complete = checkDownloadComplete(download_path)
 			if download_complete == False:
 				sleep(10)
-				print "Download incomplete. Time elapsed %d"\
-				      % (total_wait_time)
+				print str(total_wait_time),
 				total_wait_time += 10
 
 		# Rename to download file accordingly
