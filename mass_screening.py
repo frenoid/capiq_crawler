@@ -36,10 +36,12 @@ def switchToOldScreening(driver):
 
 # Get the numerical screening ID
 def getScreenId(browser_url):
-
+	# Get the relevant string in the url
 	begin = browser_url.find("UniqueScreenId=")
 	end = browser_url.find("&", begin)
 	screen_url = browser_url[begin:end]
+
+	# Extract the numbers in the url to get the screen id
 	screen_id = filter(lambda x: x.isdigit(), screen_url)
 	print "Screen ID is %s" % (screen_id)
 
@@ -102,23 +104,22 @@ def setTemplate(driver, option):
 	if "Screening Results" not in driver.title:
 		exit("!Exception. Not in screening page")
 
+	# Check if the option is a digit, if not exit with error
+	if(str(option).isdigit() == False):
+		print "Invalid template no:" , str(option)
+		exit()
+
+	# Get the drop down menu to enter template name
 	drop_down = WebDriverWait(driver,15).until(
 		    EC.element_to_be_clickable((By.ID,
 		    "_displayOptions_Displaysection1_SelectedTemplate"))
 		    )
 	drop_down.click()
 	sleep(3)
+	template_name = str(option) + "_mass"
+	drop_down.send_keys(template_name)
 
-	if option == 1:
-		drop_down.send_keys("1_mass")
-		template_name = "1_mass"
-	elif option == 2:
-		drop_down.send_keys("2_mass")
-		template_name = "2_mass"
-	elif option == 3:
-		drop_down.send_keys("3_mass")
-		template_name = "3_mass"
-
+	# Click the set template button
 	set_template=WebDriverWait(driver,15).until(
 	     	     EC.element_to_be_clickable((By.ID,
 	   	     "_displayOptions_Displaysection1_GoButton"))
@@ -126,6 +127,7 @@ def setTemplate(driver, option):
 	set_template.click()
 	sleep(5)
 
+	# Wait till template is fully loaded
 	WebDriverWait(driver,120).until(
 	EC.element_to_be_clickable((By.ID,
 	"_displayOptions_Displaysection1_ReportingOptions_GoButton"))
@@ -246,6 +248,7 @@ while login_attempts < 3 and login_success is False:
 if login_attempts == 3:
 	exit("Login attempts limit exceeded.")
 
+# Wait one minute for the screening page to fully load
 wait_time = 0
 while True:
 	if "Company Screening" in driver.title:
@@ -294,8 +297,8 @@ for download_no in download_list:
 
 
 		# Initiate download, allow max of 6 minutes for download to generate
-		min_wait_time = 30
-		max_wait_time = min_wait_time * 12
+		min_wait_time = 10
+		max_wait_time = 360
 		success, filename = generateReport(driver, 0, min_wait_time,\
 					    max_wait_time, "_displayOptions_Displaysection1_ReportingOptions_GoButton")
 
@@ -318,7 +321,7 @@ for download_no in download_list:
 	# If exception, return to screening page, try next page
 	except(TimeoutException, NoSuchElementException,\
 	       UnexpectedAlertPresentException,StaleElementReferenceException) as exception_type:
-		print "!Exception of type", exception_type, "encountered"
+		print "!Exception of type", str(exception_type), "encountered"
 		failed_page_downloads.append(download_no)
 		driver.switch_to_window(main_window)
 		driver.get(driver.current_url)

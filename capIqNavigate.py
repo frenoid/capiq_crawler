@@ -54,8 +54,11 @@ def capiqLogin(driver, user_id, user_password):
 		print "Login info entered. Signing in."
 		sleep(10)
 
-		if "Report Builder" or "Company Screening" in driver.title:
-			print "Login successful: " + driver.title
+		if "Problem loading page" in driver.title:
+			print "Login failed", driver.title
+
+		elif "Report Builder" or "Company Screening" in driver.title:
+			print "Login successful: ", driver.title
 			login_success = True
 		else:
 			print "Login failed: ", driver.title
@@ -190,11 +193,11 @@ def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 	# Each time, allow for the min download time to elapse 
 	# If status == "Failed" or max_wait_time is exceeded, exit loop, return generation failure
 	total_wait_time = 0
-	print "Time waited:",
+	print "Seconds waited:",
 	while total_wait_time < max_wait_time and success == False: 
 		sleep(min_wait_time)
 		total_wait_time += min_wait_time
-		print str(total_wait_time), "sec",
+		print str(total_wait_time),
 		success, filename = downloadFile(driver, batch_no)
 
 	for handle in driver.window_handles:
