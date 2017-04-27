@@ -118,20 +118,25 @@ def setTemplate(driver, option):
 	sleep(3)
 	template_name = str(option) + "_mass"
 	drop_down.send_keys(template_name)
+        sleep(3)
 
 	# Click the set template button
-	set_template=WebDriverWait(driver,15).until(
+	set_template_go=WebDriverWait(driver,15).until(
 	     	     EC.element_to_be_clickable((By.ID,
 	   	     "_displayOptions_Displaysection1_GoButton"))
 		     )
-	set_template.click()
-	sleep(5)
-
-	# Wait till template is fully loaded
-	WebDriverWait(driver,120).until(
-	EC.element_to_be_clickable((By.ID,
-	"_displayOptions_Displaysection1_ReportingOptions_GoButton"))
-	)
+        try:
+	    set_template_go.click()
+            set_template_go.click()
+	    sleep(5)
+        except WebDriverException:
+            pass
+        finally:
+	    # Wait till template is fully loaded
+	    WebDriverWait(driver,120).until(
+	    EC.element_to_be_clickable((By.ID,
+	    "_displayOptions_Displaysection1_ReportingOptions_GoButton"))
+	    )
 
 	return template_name
 
@@ -218,7 +223,7 @@ target_gic = argv[1]
 template_no = argv[2]
 
 # 1: Check if download directory is free of excel files
-download_path = readDownloadDir("C:/Selenium/capitaliq/download_dir.txt")
+download_path = readDownloadDir("download_dir.txt")
 if download_path == "Invalid":
 	exit("Invalid download directory")
 if isDownloadDirClear(download_path) is False:

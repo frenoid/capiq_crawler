@@ -250,7 +250,7 @@ def moveAllExcelFiles(source_dir, destination_dir):
 				move(source_dir+"/"+ entry, destination_dir +"/"+ entry)
 				files_moved += 1
 			except IOError:
-				print "%s could not be moved" % (entry)
+				print "%s could not be moved to %s" % (entry, destination_dir +"/"+ entry)
 				continue
 
 	return files_moved
