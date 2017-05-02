@@ -68,20 +68,20 @@ def capiqLogin(driver, user_id, user_password):
 	return driver, login_success
 
 def getValidFirmCount(driver):
+        count = 0
 	try:
-		count_element = WebDriverWait(driver,15).until(\
+		count_string = WebDriverWait(driver,15).until(\
 			        EC.presence_of_element_located((\
 			        By.PARTIAL_LINK_TEXT,\
-			        "Companies(")))
-
-		count_string = count_element.text
-		count = filter(type(count_string).isdigit, count_string) 
+			        "Companies("))\
+                                ).text
+		count = int(filter(type(count_string).isdigit, count_string))
 			   
-		print "%s valid CQ IDs" % (count)
 
 	except (TimeoutException, NoSuchElementException):
-		count = 0
-		print "0 valid CQ IDs"
+                pass
+
+	print "%s valid CQ IDs" % (count)
 
 	return int(count)
 
@@ -144,12 +144,13 @@ def downloadFile(driver, batch_no):
 		filename = filename_element.text + ".xls"
 
 		# Get the file-link of the file in the first row of the report generation window
-		file_link = WebDriverWait(driver,5).until(\
-                   	    EC.presence_of_element_located((\
- 		    	    By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span/a")))
+		file_url = WebDriverWait(driver,5).until(\
+                   	        EC.presence_of_element_located((\
+ 		    	        By.XPATH,\
+                                "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span/a"))\
+                                ).get_attribute("href")
 	
 		# If file_url is not empty, then start downloading
-		file_url = file_link.get_attribute("href")
 		if file_url is not None:
 			print ""
 			print "Getting %s from url %s" % (filename, file_url)

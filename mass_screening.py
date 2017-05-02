@@ -102,12 +102,13 @@ def setTemplate(driver, option):
 	option = int(option)
 	template_name = "Invalid"
 	if "Screening Results" not in driver.title:
-		exit("!Exception. Not in screening page")
+		print("!Exception. Not in screening page")
+                return "Invalid"
 
 	# Check if the option is a digit, if not exit with error
 	if(str(option).isdigit() == False):
 		print "Invalid template no:" , str(option)
-		exit()
+                return "Invalid"
 
 	# Get the drop down menu to enter template name
 	drop_down = WebDriverWait(driver,15).until(
@@ -232,58 +233,75 @@ if isDownloadDirClear(download_path) is False:
 final_path = download_path + "/" + target_gic
 checkMakeDir(final_path)
 
+# Login, set GIC filter and template until successful, 3 tries allowed
+initiate_success = False
+attempts = 0
+while initiate_success != True and attempts < 3:
+        attempts += 1
+        print "Initialization attempt #", str(attempts)
 
-# 2: Initialize the brower and load Capital IQ 
-login_attempts = 0
-login_success = False
-while login_attempts < 3 and login_success is False:
-	login_attempts += 1	
-	screening_page = "https://www.capitaliq.com/ciqdotnet/Screening/ScreenBuilder.aspx?clear=all&returnToOriginal=1"
-	driver = capiqInitialize(screening_page)
-	main_window = driver.current_window_handle
-	print "Capital IQ website loaded"
-	print "Login attempt #%d" % (login_attempts)
-	driver, login_success = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
+	# 2: Initialize the brower and load Capital IQ 
+	login_attempts = 0
+	login_success = False
+	while login_attempts < 3 and login_success is False:
+		login_attempts += 1	
+		screening_page = "https://www.capitaliq.com/ciqdotnet/Screening/ScreenBuilder.aspx?clear=all&returnToOriginal=1"
+		driver = capiqInitialize(screening_page)
+		main_window = driver.current_window_handle
+		print "Capital IQ website loaded"
+		print "Login attempt #%d" % (login_attempts)
+		driver, login_success = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
 
-	if login_success is False:
-		print "Close browser. Wait one minute"
-		sleep(60)
+		if login_success is False:
+			print "Close browser. Wait one minute"
+			sleep(60)
+			driver.quit()
+
+	if login_attempts > 3:
+                print "Max logins reached"
+                continue
+
+	# Wait one minute for the screening page to fully load
+	wait_time = 0
+        screening_page_loaded = False
+	while screening_page_loaded != True:
+		if "Company Screening" in driver.title:
+			print "Company Screening loaded"
+                        screening_page_loaded = True
+		elif wait_time > 60:
+			print("Timeout on loading Company Screening page")
+                        break
+		else:
+			sleep(5)
+			wait_time += 5
+        if screening_page_loaded == False:
+                print "!Exception, screening page not loaded"
+
+	# 3. Set GIC filter and variable template
+	try:
+		# Set filter to target GIC code and get number of firms
+		total_firm_count, screen_id = setGicFilter(driver, target_gic)
+		print "Filter set: %d firms in %s" % (total_firm_count, target_gic)
+	except(TimeoutException, NoSuchElementException):
 		driver.quit()
+		print "!Exception while setting GIC filter"
+                continue
 
-if login_attempts == 3:
-	exit("Login attempts limit exceeded.")
-
-# Wait one minute for the screening page to fully load
-wait_time = 0
-while True:
-	if "Company Screening" in driver.title:
-		print "Company Screening loaded"
-		break
-	elif wait_time > 60:
-		exit("Timeout on loading Company Screening page")
-	else:
-		sleep(5)
-		wait_time += 5
-
-# 3. Set GIC filter and variable template
-try:
-	# Set filter to target GIC code and get number of firms
-	total_firm_count, screen_id = setGicFilter(driver, target_gic)
-	print "Filter set: %d firms in %s" % (total_firm_count, target_gic)
-except(TimeoutException, NoSuchElementException):
-	driver.quit()
-	exit("!Exception while setting GIC filter")
-
-try:
-	# Set correct variable template
-	template_name = setTemplate(driver, template_no)
-	if template_name == "Invalid":
+	try:
+		# Set correct variable template
+		template_name = setTemplate(driver, template_no)
+		if template_name == "Invalid":
+			driver.quit()
+			print "Invalid template name"
+                        continue
+		print "Template set: %s" % (template_name)
+	except(TimeoutException, NoSuchElementException):
 		driver.quit()
-		exit("Invalid template name")
-	print "Template set: %s" % (template_name)
-except(TimeoutException, NoSuchElementException):
-	driver.quit()
-	exit("!Exception while setting template")
+		print "!Exception while setting template"
+                continue
+
+        initiate_success = True
+        print "* Initialization successful *"
 
 # 4. Create download list, one file for every 10,000 firms
 total_files = int(ceil(float(total_firm_count)/10000.0))
