@@ -16,7 +16,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from time import sleep, time, localtime, strftime
 from os import chdir, remove, rename, listdir
 from shutil import copy
-from math import ceil
+from math import ceil, floor
 from capIqNavigate import capiqInitialize, capiqLogin, capiqLogout, generateReport, downloadFile
 from capIqLibrary import createDummyFile, getDownloadName,isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles, readDownloadDir, checkMakeDir, checkDownloadComplete
 
@@ -37,15 +37,33 @@ def switchToOldScreening(driver):
 # Get the numerical screening ID
 def getScreenId(browser_url):
 	# Get the relevant string in the url
-	begin = browser_url.find("UniqueScreenId=")
-	end = browser_url.find("&", begin)
-	screen_url = browser_url[begin:end]
+	begin_i = browser_url.find("UniqueScreenId=")
+	end_i = browser_url.find("&", begin_i)
+	screen_url = browser_url[begin_i:end_i]
 
 	# Extract the numbers in the url to get the screen id
 	screen_id = filter(lambda x: x.isdigit(), screen_url)
 	print "Screen ID is %s" % (screen_id)
 
 	return screen_id
+
+def getPageNo(driver):
+        assert "Company Screening" in driver.title
+        page_no = 0
+
+        page_no_textline = WebDriverWait(driver, 30).until(
+                           EC.presence_of_element_located((By.XPATH, "/html/body/table/tbody/tr[2]/td[4]/div/form/div[6]/div[4]/div[2]/table/tbody/tr/td/span[1]/table[3]/tbody/tr[2]/td/nobr")) 
+                           ).text
+
+        begin_i = page_no_textline.find("of ")
+        end_i = page_no_textline.find(" to", begin_i)
+        if end_i == -1:
+            page_no = 1
+        else:
+            first_firm = int(page_no_textline[begin_i+3:end_i])
+            page_no = int(((first_firm-1) / float(50000)) + 1)
+
+        return page_no
 
 # Set the correct GIC code to filter firms
 def setGicFilter(driver, gic_code):
@@ -58,13 +76,24 @@ def setGicFilter(driver, gic_code):
 	sleep(1)
 	# screening_search.send_keys(Keys.ENTER)
 
-	# Click on the first result, then choose primary only
+	# Click on the first result, 
+        # Unless GIC code is "Communications Equipment", then choose second result
 	sleep(5)
-	sub_search = WebDriverWait(driver,15).until(
-		     EC.presence_of_element_located((By.XPATH,\
-                     "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/div[2]/a"))
-		     )
+        if gic_code == "Communications Equipment":
+            print "Communications Equipment -> Select second search result"
+            sub_search = WebDriverWait(driver,15).until(
+		         EC.presence_of_element_located((By.XPATH,\
+                         "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[2]/div[2]/a/div[1]/span/b/span"))
+		         )
+
+        else:
+	    sub_search = WebDriverWait(driver,15).until(
+		         EC.presence_of_element_located((By.XPATH,\
+                         "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/div[2]/a"))
+		         )
 	sub_search.click()
+
+        # Choose primary code only
 	primary_only = WebDriverWait(driver,15).until(
 		       EC.element_to_be_clickable((By.XPATH,\
 		       "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/a/span/b"))
@@ -142,14 +171,23 @@ def setTemplate(driver, option):
 	return template_name
 
 # Change to the correct set of 10,000 or 50,000 firms
-def changePageNo(driver, page_no, screen_id):
+def changePageNo(driver, download_no, screen_id):
 
-	# Switch to correct page of 50,000 firms
-	# For firm count > 50000
-	if (page_no-1)%5==0 and page_no != 1:
+        # Get the current page
+	assert "Screening Results" in driver.title
+        current_page = getPageNo(driver)
+
+        # Get expected page no
+        page_no = int(floor(float(download_no)/float(6)) + 1)
+
+        # Compare current page to expected page_no
+        # If not the same, change page
+        if current_page == page_no:
+                print "Current page %d and correct" % (current_page)
+        else:
+                print "Changing page %d -> page %d" % (current_page, page_no)
 
 		# Return to the screen selection page
-		assert "Screening Results" in driver.title
 		screen_url = "https://www.capitaliq.com/CIQDotNet/Screening/ScreenBuilder.aspx?UniqueScreenId=" + screen_id + "&clear=all&returntooriginal=1#"
 		driver.get(screen_url)
 
@@ -162,7 +200,7 @@ def changePageNo(driver, page_no, screen_id):
 				  )
 
 		# Set view-range by selecting the first firm no
-		first_firm_no = (page_no * 10000) - 9999
+		first_firm_no = (download_no * 10000) - 9999
 		view_range_menu.send_keys(str(first_firm_no))
 
 		# View results
@@ -173,27 +211,25 @@ def changePageNo(driver, page_no, screen_id):
 		view_results.click()
 
 	# Switch to correct set of 0 - 50000 firms
-	try:
-		export_menu = WebDriverWait(driver, 30).until(
-			      EC.element_to_be_clickable((By.ID,
-			      "_displayOptions_Displaysection1_ReportingOptions_NumberOfTargetsExcel"))
-			      )
-		if (page_no % 5) != 1:
-			export_menu.click()
-			if page_no % 5 == 2:
-				export_menu.send_keys("10001")
-			elif page_no % 5 == 3:
-				export_menu.send_keys("20001")
-			elif page_no % 5 == 4:
-				export_menu.send_keys("30001")
-			elif page_no % 5 == 0:
-				export_menu.send_keys("40001")
-			export_menu.send_keys(Keys.ENTER)
-	finally:
-		pass
+	export_menu = WebDriverWait(driver, 30).until(
+		      EC.element_to_be_clickable((By.ID,
+		      "_displayOptions_Displaysection1_ReportingOptions_NumberOfTargetsExcel"))
+		      )
+	export_menu.click()
 
+        if download_no % 5 == 1:
+                export_menu.send_keys("Top 10000")
+	elif download_no % 5 == 2:
+	        export_menu.send_keys("10001")
+	elif download_no % 5 == 3:
+		export_menu.send_keys("20001")
+	elif download_no % 5 == 4:
+		export_menu.send_keys("30001")
+	elif download_no % 5 == 0:
+		export_menu.send_keys("40001")
+	export_menu.send_keys(Keys.ENTER)
 	
-	print "Switched to %d th firms" % ((page_no-1)*10000)
+	print "Switched to %d th firms" % ((download_no-1)*10000)
 
 
 	return
@@ -226,19 +262,19 @@ template_no = argv[2]
 # 1: Check if download directory is free of excel files
 download_path = readDownloadDir("download_dir.txt")
 if download_path == "Invalid":
-	exit("Invalid download directory")
+        exit("!Error: Invalid download directory")
 if isDownloadDirClear(download_path) is False:
-	exit("Download dir is not clear. Remove all .xls and .xlsx files")
+    exit("!Error: Download dir is not clear. Remove all .xls and .xlsx files")
 
 final_path = download_path + "/" + target_gic
 checkMakeDir(final_path)
 
 # Login, set GIC filter and template until successful, 3 tries allowed
 initiate_success = False
-attempts = 0
-while initiate_success != True and attempts < 3:
-        attempts += 1
-        print "Initialization attempt #", str(attempts)
+initiate_attempts = 0
+while initiate_success != True and initiate_attempts < 3:
+        initiate_attempts += 1
+        print "Initialization attempt #", str(initiate_attempts)
 
 	# 2: Initialize the brower and load Capital IQ 
 	login_attempts = 0
@@ -282,7 +318,7 @@ while initiate_success != True and attempts < 3:
 		# Set filter to target GIC code and get number of firms
 		total_firm_count, screen_id = setGicFilter(driver, target_gic)
 		print "Filter set: %d firms in %s" % (total_firm_count, target_gic)
-	except(TimeoutException, NoSuchElementException):
+	except(TimeoutException, NoSuchElementException, UnexpectedAlertPresentException):
 		driver.quit()
 		print "!Exception while setting GIC filter"
                 continue
@@ -295,7 +331,7 @@ while initiate_success != True and attempts < 3:
 			print "Invalid template name"
                         continue
 		print "Template set: %s" % (template_name)
-	except(TimeoutException, NoSuchElementException):
+	except(TimeoutException, NoSuchElementException, UnexpectedAlertPresentException):
 		driver.quit()
 		print "!Exception while setting template"
                 continue
@@ -313,11 +349,15 @@ print "***** Download Commenced *****"
 
 for download_no in download_list:
 	print "=== File %d of %d ===" % (download_no, len(download_list))
-	try:
-		# Change to approriate page number
-		if download_no != 1:
-			changePageNo(driver, download_no, screen_id)	
-
+        download_success = False
+        download_attempts = 0
+        while download_success != True and download_attempts < 5:
+            download_attempts += 1
+            print "* Attempt #%d *" % (download_attempts)
+	    try:
+	        # Change to approriate page number
+	        if len(download_list) > 1:
+	    	    changePageNo(driver, download_no, screen_id)	
 
 		# Initiate download, allow max of 6 minutes for download to generate
 		min_wait_time = 10
@@ -338,24 +378,30 @@ for download_no in download_list:
 				total_wait_time += 10
 
 		# Rename to download file accordingly
-		renameMassFile(download_path, filename,\
-			       target_gic,download_no, len(download_list))
+		renameMassFile(download_path, filename, target_gic,download_no, len(download_list))
 
-	# If exception, return to screening page, try next page
-	except(TimeoutException, NoSuchElementException,\
+		# If all goes well, mark as successful
+		download_success = True
+
+	    #If exception, return to screening page, try next page
+	    except(TimeoutException, NoSuchElementException,\
 	       UnexpectedAlertPresentException,StaleElementReferenceException) as exception_type:
-		print "!Exception of type", str(exception_type), "encountered"
-		failed_page_downloads.append(download_no)
+	        print "!Exception of type", str(exception_type), "encountered"
 		driver.switch_to_window(main_window)
 		driver.get(driver.current_url)
 		sleep(10)
-				
-	finally:
+						
+	    finally:
 		excel_files_moved = moveAllExcelFiles(download_path, final_path)
 		print "%d .xls files moved" % (excel_files_moved)
 		partial_files_moved = moveAllPartialFiles(download_path, final_path)
 		print "%d .part files moved" % (partial_files_moved)
 		driver.switch_to_window(main_window)
+
+            # If the download did not complete successfully, mark as such
+	    if download_success != True:
+		failed_page_downloads.append(download_no)
+
 
 print "Failed pages:", str(failed_page_downloads)
 capiqLogout(driver, main_window)

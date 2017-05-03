@@ -32,6 +32,9 @@ def capiqInitialize(start_page):
 	profile = FirefoxProfile()
 	profile.set_preference("browser.helperApps.neverAsk.saveToDisk",\
 		       "application/vnd.ms-excel")
+        profile.set_preference("app.update.auto", "false")
+        profile.set_preference("app.update.enabled", "false")
+        profile.set_preference("app.update.silent", "false")
 
 	driver = webdriver.Firefox(firefox_profile = profile)
 	driver.get(start_page)
@@ -138,6 +141,7 @@ def downloadFile(driver, batch_no):
 				break
 
 		# Get file-name of the file in the first row of the report generation window
+                sleep(5)
 		filename_element = WebDriverWait(driver,5).until(\
                     	  	   EC.presence_of_element_located((\
                            	   By.XPATH, "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[1]/div[1]")))
