@@ -269,10 +269,10 @@ if isDownloadDirClear(download_path) is False:
 final_path = download_path + "/" + target_gic
 checkMakeDir(final_path)
 
-# Login, set GIC filter and template until successful, 3 tries allowed
+# Login, set GIC filter and template until successful, 5 tries allowed
 initiate_success = False
 initiate_attempts = 0
-while initiate_success != True and initiate_attempts < 3:
+while initiate_success != True and initiate_attempts < 5:
         initiate_attempts += 1
         print "Initialization attempt #", str(initiate_attempts)
 
@@ -331,7 +331,7 @@ while initiate_success != True and initiate_attempts < 3:
 			print "Invalid template name"
                         continue
 		print "Template set: %s" % (template_name)
-	except(TimeoutException, NoSuchElementException, UnexpectedAlertPresentException):
+	except(TimeoutException, NoSuchElementException, UnexpectedAlertPresentException, WebDriverException):
 		driver.quit()
 		print "!Exception while setting template"
                 continue
