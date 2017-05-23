@@ -39,7 +39,7 @@ def getReportRelations(download_folder, relations):
         print "Missing corporate_tree: " + str(corptree_missing)
         return corptree_missing
 
-# Find missing relations for the files download through Capital IQ's Company Screening function
+# Find missing files for downloads from Capital IQ's Company Screening function
 def getScreeningRelations(download_folder, relations):
     chdir(download_folder)
     gic_code_folders = listdir(download_folder)
@@ -57,6 +57,7 @@ def getScreeningRelations(download_folder, relations):
 
     # Iterate across GIC codes, check if all files are present in each GIC code
     for gic_folder in gic_code_folders:
+        # print "Checking %s" % (gic_folder)
         try:
             chdir(download_folder)
             raw_files = listdir(gic_folder)
