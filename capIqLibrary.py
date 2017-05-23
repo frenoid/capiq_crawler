@@ -4,7 +4,8 @@ import xlrd
 from os import listdir, chdir, getcwd, mkdir
 from shutil import move, copy
 
-# Reads the download_dir path from .txt file and returns the path if valid
+# Reads the download_dir path from .txt file
+# Then checks if the path exists, then return whether it is a valid/invalid path
 def readDownloadDir(config_path):
 	current_dir = getcwd()
 	download_path = "Invalid"
@@ -36,7 +37,8 @@ def isDownloadDirClear(download_dir):
 
 	return is_download_dir_clear
 
-# Check if the dir exists, if not, create it
+# Check if the dir exists
+# If not, create it
 def checkMakeDir(dir_path):
 	current_dir = getcwd()
 
@@ -52,8 +54,11 @@ def checkMakeDir(dir_path):
 
 	return
 
+# For report builder
 # Create main data structure: a dictionary
-# Key: Firm_name, Value: list of [company_id, batch_no]
+# This function reads a .xlsx file which must contain
+# 1) Company names, 2) CIQ IDs, 3) Batch no
+# Key: Firm_name, Values: list of [company_id, batch_no]
 def getCompanyNamesInfo(code_name):
 	company_names_info = {}
 	cwd = getcwd()
@@ -96,6 +101,7 @@ def getCompanyNamesInfo(code_name):
 
 	return company_names_info
 
+# For Report Builder
 # From the downloaded file, find out what report type and batch number it is
 # Parameters are the downloaded file and the company_names_info dict
 def getTrueName(rawfile, company_names_info):
@@ -176,7 +182,9 @@ def getTrueName(rawfile, company_names_info):
 
 	return true_name
 
-
+# For Report Builder
+# This file checks if all files for a given relations download are present
+# It checks from file #1 to #last_batch
 def findMissing(downloaded_files, relations, last_batch):
 	missing = []
 	
@@ -191,6 +199,7 @@ def findMissing(downloaded_files, relations, last_batch):
 
 	return missing
 
+# For Report Builder
 # Creates a list of firms by CIQ IQ to be downloaded
 def getBatchList(company_names_info, batch_no):
 	
@@ -206,6 +215,7 @@ def getBatchList(company_names_info, batch_no):
 
 	return batch_list
 
+# For Report Builder
 # In the case of nil return from adding firms to the Report Builder 
 # Create a empty dummy file with appropriate names
 def createDummyFile(batch_no, report_type):
@@ -223,6 +233,7 @@ def createDummyFile(batch_no, report_type):
 
 	return dummy_file_name
 
+# For Report Builder
 # Generate an expected download file name using
 # 1. report_type 2. number of firms AddFirms
 def getDownloadName(report_type, valid_firm_count):
@@ -238,6 +249,7 @@ def getDownloadName(report_type, valid_firm_count):
 
 	return download_name
 
+# For both Report Builder and Company Screening
 # Shift all .xls files from one folder to another
 # Typically the default Firefox download dir to storage dir
 def moveAllExcelFiles(source_dir, destination_dir):
@@ -255,6 +267,9 @@ def moveAllExcelFiles(source_dir, destination_dir):
 
 	return files_moved
 
+# For both Report Builder and Company Screening
+# Shift all .part files from one folder to another
+# Typically the default Firefox download dir to storage dir
 def moveAllPartialFiles(source_dir, destination_dir):
 	entries = listdir(source_dir)
 	files_moved = 0
@@ -270,6 +285,7 @@ def moveAllPartialFiles(source_dir, destination_dir):
 
 	return files_moved
 
+# For both Report Builder and Company Screening
 # Check if the download is complete by checking the download_dir for .part files
 def checkDownloadComplete(download_path):
 	entries = listdir(download_path)

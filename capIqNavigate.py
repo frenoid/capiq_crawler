@@ -13,6 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import pyperclip
 from time import sleep
 
+# This report type returns the correct html id for each download_type in Report Builder
 def getReportType(download_type):
 	if(download_type == "customer"):
 		download_id = "RepBldrTemplateImg1126682"
@@ -27,11 +28,14 @@ def getReportType(download_type):
 
 	return download_id
 
-
+# This starts Firefox with the profile appropriate for Capital IQ download
+# The start_page should be an appropriate Capital IQ URL
 def capiqInitialize(start_page):
 	profile = FirefoxProfile()
+        # No SaveToLocation prompt when downloading .xls files
 	profile.set_preference("browser.helperApps.neverAsk.saveToDisk",\
 		       "application/vnd.ms-excel")
+        # Never update firefox
         profile.set_preference("app.update.auto", "false")
         profile.set_preference("app.update.enabled", "false")
         profile.set_preference("app.update.silent", "false")
@@ -43,11 +47,13 @@ def capiqInitialize(start_page):
 
 	return driver
 
+# This logs the user into Capital IQ
+# You must specify the user_id and password
 def capiqLogin(driver, user_id, user_password):
 	login_success = False
 	try:
 		username = driver.find_element(by=By.ID, value="username")
-		password = driver.find_element(By.NAME, "password")
+		password = driver.find_element(by=By.NAME, value="password")
 		signin = driver.find_element(by=By.ID, value="myLoginButton")
 		sleep(5)
 
@@ -70,6 +76,7 @@ def capiqLogin(driver, user_id, user_password):
 
 	return driver, login_success
 
+# For Report Builder, this function returns the number of CIQ IDs which still link to an existing firm in Cap IQ
 def getValidFirmCount(driver):
         count = 0
 	try:
@@ -88,6 +95,7 @@ def getValidFirmCount(driver):
 
 	return int(count)
 
+# This function adds CIQ IDs into the Report Builder dialogue
 def addFirms(driver, batch_list):
 	add_firm = WebDriverWait(driver,30).until(\
 		   EC.presence_of_element_located((\
@@ -127,7 +135,10 @@ def addFirms(driver, batch_list):
 
 	return valid_firm_count
 
+# While in the Report Generation dialog, 
 # This function attempts to get the download URL, it returns the download success and the filename
+# Otherwise it returns a False status which means still generating
+# Or a "Failed" status which means the report generation failed
 def downloadFile(driver, batch_no):
 	download_success = False
 	filename = ""
@@ -169,6 +180,7 @@ def downloadFile(driver, batch_no):
 			      "/html/body/div[2]/div[1]/table/tbody/tr/td/div/div/table/tbody/tr[1]/td[3]/span"))
 			      ).text
 
+                #  This is when report generation fails
 		if file_status == "Failed":
 			download_success = "Failed"
 			print ""
@@ -180,6 +192,7 @@ def downloadFile(driver, batch_no):
 	
 
 # This function begins the report generation process, calls the download function repeatedly
+# Each time it tests if the  report is 1) Successfully generated 2) Still generating 3) Failed
 # It returns the download_success and the filename if available
 def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 	# Generate Report
@@ -196,7 +209,8 @@ def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 
 
 	# Each time, allow for the min download time to elapse 
-	# If status == "Failed" or max_wait_time is exceeded, exit loop, return generation failure
+	# If status == "Failed" or max_wait_time is exceeded, exit loop
+        # Return generation failure
 	total_wait_time = 0
 	print "Seconds waited:",
 	while total_wait_time < max_wait_time and success == False: 
@@ -213,6 +227,7 @@ def generateReport(driver, batch_no, min_wait_time, max_wait_time, download_id):
 
 	return success, filename 
 
+# This protocol logs the user out of Capital IQ and closes the main window
 def capiqLogout(driver, main_window):
 	try:
 		driver.switch_to.window(main_window)
