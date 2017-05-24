@@ -3,6 +3,9 @@ The crawler extracts data from Capital IQ using the Screening and Report Builder
 
 Files
 =====
+0) all_gic_codes.txt
+This is a list of all 157 GIC codes in Capital IQ. Copy relevant codes into a file named gic_codes_to_download.txt and run mass_screening.py to download data from Capital IQ.
+
 1) capIqLibrary.py
 This is a library containing commonly used routines for file-handling, file-reading and directory-checking
 
