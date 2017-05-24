@@ -34,3 +34,5 @@ GIC codes it should filter by and subsequently download the data for.
 7) verify_names.py
 This file checks that the output of capiq_report.py. It ensures that the firms within match up to the batch no. given in the
 .xlsx file containing the firms in that GIC code. It outputs files which have mis-matched firms.
+
+Testing commit system
