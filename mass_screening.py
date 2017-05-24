@@ -79,8 +79,8 @@ def setGicFilter(driver, gic_code):
 	# Click on the first result, 
         # Unless GIC code is "Communications Equipment", then choose second result
 	sleep(5)
-        if gic_code == "Communications Equipment":
-            print "Communications Equipment -> Select second search result"
+        if gic_code == "Communications Equipment" or gic_code == "Electronic Components":
+            print "%s -> Select second search result" % (gic_code)
             sub_search = WebDriverWait(driver,15).until(
 		         EC.presence_of_element_located((By.XPATH,\
                          "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[2]/div[2]/a/div[1]/span/b/span"))
@@ -264,14 +264,22 @@ if download_type != "all" and download_type != "list":
     exit("Invalid download type, check your arguments")
 
 # 1: Check if download directory is free of excel files
+# If not, clear it by moving all excel files to the final_dir
+# Also move all .part files to the final dir
 download_path = readDownloadDir("download_dir.txt")
-if download_path == "Invalid":
-        exit("!Error: Invalid download directory")
-if isDownloadDirClear(download_path) is False:
-    exit("!Error: Download dir is not clear. Remove all .xls and .xlsx files")
-
 final_path = download_path + "/" + target_gic
 checkMakeDir(final_path)
+
+if download_path == "Invalid":
+        print "Download path not found"
+        exit("!Error: Invalid download directory")
+
+while isDownloadDirClear(download_path) is False:
+        print "Download dir %s is not clear" % (download_path)
+        excel_files_moved = moveAllExcelFiles(download_path, final_path)
+        print "%d .xls files moved" % (excel_files_moved)
+	partial_files_moved = moveAllPartialFiles(download_path, final_path)
+	print "%d .part files moved" % (partial_files_moved)
 
 # Login, set GIC filter and template until successful, 5 tries allowed
 initiate_success = False
