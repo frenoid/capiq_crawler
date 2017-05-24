@@ -252,12 +252,16 @@ def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 
 # 0: Program starts: check arguments
 print "********** Capital IQ mass screening downloader *********"
-if (len(argv) < 2):
-	print "Format: python mass_screening.py <GIC_CODE>"
+if (len(argv) < 3):
+	print "Format: python mass_screening.py <GIC_CODE> <TEMPLATE_NO> <DOWNLOAD_TYPE> [FILE_NO]"
 	exit("Insufficient arguments")
 
 target_gic = argv[1]
 template_no = argv[2]
+download_type = argv[3]
+if download_type != "all" and download_type != "list":
+    print "%s is not a valid download type" % download_type
+    exit("Invalid download type, check your arguments")
 
 # 1: Check if download directory is free of excel files
 download_path = readDownloadDir("download_dir.txt")
@@ -341,14 +345,23 @@ while initiate_success != True and initiate_attempts < 5:
 
 # 4. Create download list, one file for every 10,000 firms
 total_files = int(ceil(float(total_firm_count)/10000.0))
-download_list = range(1, total_files+1)
+
+if download_type == "all":
+    download_list = range(1, total_files+1)
+elif download_type == "list":
+    download_list = map(int, argv[4:])
+else:
+    print "%s is not a valid download type" % (download_type)
+    driver.quit()
+    exit("Invalid download type. Check your arguments")
+
 failed_page_downloads = []
 sleep(15)
 print "Download list: %s" % (str(download_list))
 print "***** Download Commenced *****"
 
 for download_no in download_list:
-	print "=== File %d of %d ===" % (download_no, len(download_list))
+	print "=== File %d of %d ===" % (download_no, total_files)
         download_success = False
         download_attempts = 0
         while download_success != True and download_attempts < 5:
@@ -378,7 +391,7 @@ for download_no in download_list:
 				total_wait_time += 10
 
 		# Rename to download file accordingly
-		renameMassFile(download_path, filename, target_gic,download_no, len(download_list))
+		renameMassFile(download_path, filename, target_gic,download_no, total_files)
 
 		# If all goes well, mark as successful
 		download_success = True
