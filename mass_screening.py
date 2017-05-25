@@ -34,7 +34,7 @@ def switchToOldScreening(driver):
 
 	return 
 
-# Get the numerical screening ID
+# Get the ScreenId, a number given to each Company Screen performed
 def getScreenId(browser_url):
 	# Get the relevant string in the url
 	begin_i = browser_url.find("UniqueScreenId=")
@@ -47,6 +47,7 @@ def getScreenId(browser_url):
 
 	return screen_id
 
+# This examines the Company Screening page to figure out which block of 50,000 firms you are currently on
 def getPageNo(driver):
         assert "Company Screening" in driver.title
         page_no = 0
@@ -77,7 +78,7 @@ def setGicFilter(driver, gic_code):
 	# screening_search.send_keys(Keys.ENTER)
 
 	# Click on the first result, 
-        # Unless GIC code is "Communications Equipment", then choose second result
+        # Communications Equipment and Electronic Components chooses the second result
 	sleep(5)
         if gic_code == "Communications Equipment" or gic_code == "Electronic Components":
             print "%s -> Select second search result" % (gic_code)
@@ -108,12 +109,15 @@ def setGicFilter(driver, gic_code):
 	driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
 
+	# Note that the following occurs in a different browser frame
 	# In the results frame, get the number of firms, the view results
 	driver.switch_to_frame("CriterionResultsFrame")
 	firm_count_elem = WebDriverWait(driver,15).until(
 			  EC.element_to_be_clickable((By.ID,
 		          "_viewTopControl__numberOfResults"))
 			  )
+
+	# Get the number firms in the GIC code
 	firm_count = int(filter(lambda x: x.isdigit(), firm_count_elem.text))
 	screen_id = getScreenId(driver.current_url)
 
@@ -130,6 +134,8 @@ def setTemplate(driver, option):
 	sleep(3)
 	option = int(option)
 	template_name = "Invalid"
+
+	# We are not in the right page
 	if "Screening Results" not in driver.title:
 		print("!Exception. Not in screening page")
                 return "Invalid"
@@ -156,6 +162,7 @@ def setTemplate(driver, option):
 	   	     "_displayOptions_Displaysection1_GoButton"))
 		     )
         try:
+	    # 2 clicks, one to set focus, one to actually click on the Go button	
 	    set_template_go.click()
             set_template_go.click()
 	    sleep(5)
@@ -169,6 +176,33 @@ def setTemplate(driver, option):
 	    )
 
 	return template_name
+
+# Choose the correct set of 10,000 firms to export
+def chooseExportFirms(driver, download_no):
+
+	# Switch to correct set of 0 - 50000 firms
+	# Using the Export: dropdown menu
+	export_menu = WebDriverWait(driver, 30).until(
+		      EC.element_to_be_clickable((By.ID,
+		      "_displayOptions_Displaysection1_ReportingOptions_NumberOfTargetsExcel"))
+		      )
+	export_menu.click()
+
+        if download_no % 5 == 1:
+                export_menu.send_keys("Top 10000")
+	elif download_no % 5 == 2:
+	        export_menu.send_keys("10001")
+	elif download_no % 5 == 3:
+		export_menu.send_keys("20001")
+	elif download_no % 5 == 4:
+		export_menu.send_keys("30001")
+	elif download_no % 5 == 0:
+		export_menu.send_keys("40001")
+	export_menu.send_keys(Keys.ENTER)
+	
+	print "Switched to %d th firms" % ((download_no-1)*10000)
+
+	return
 
 # Change to the correct set of 10,000 or 50,000 firms
 def changePageNo(driver, download_no, screen_id):
@@ -210,31 +244,14 @@ def changePageNo(driver, download_no, screen_id):
 			       )
 		view_results.click()
 
-	# Switch to correct set of 0 - 50000 firms
-	export_menu = WebDriverWait(driver, 30).until(
-		      EC.element_to_be_clickable((By.ID,
-		      "_displayOptions_Displaysection1_ReportingOptions_NumberOfTargetsExcel"))
-		      )
-	export_menu.click()
-
-        if download_no % 5 == 1:
-                export_menu.send_keys("Top 10000")
-	elif download_no % 5 == 2:
-	        export_menu.send_keys("10001")
-	elif download_no % 5 == 3:
-		export_menu.send_keys("20001")
-	elif download_no % 5 == 4:
-		export_menu.send_keys("30001")
-	elif download_no % 5 == 0:
-		export_menu.send_keys("40001")
-	export_menu.send_keys(Keys.ENTER)
-	
-	print "Switched to %d th firms" % ((download_no-1)*10000)
+	# Use the export menu to select the correct group of 10,000 firms
+	chooseExportFirms(driver, download_no)
 
 
 	return
 
 # Rename the downloaded file according to its GIC code and page number
+# File name format <gic_code>_<page_no)_of_<total_pages>.xls
 def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 	rename_success = False
 	final_name = gic_code + "_" + str(page_no) + "_of_"\
@@ -250,12 +267,14 @@ def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 	
 	return rename_success, final_name
 
-# 0: Program starts: check arguments
+# 0: Program starts
+# Check if there are enough arguments passed in
 print "********** Capital IQ mass screening downloader *********"
 if (len(argv) < 3):
 	print "Format: python mass_screening.py <GIC_CODE> <TEMPLATE_NO> <DOWNLOAD_TYPE> [FILE_NO]"
 	exit("Insufficient arguments")
 
+# Parse arguments in program variables, check if they are valid
 target_gic = argv[1]
 template_no = argv[2]
 download_type = argv[3]
@@ -263,17 +282,19 @@ if download_type != "all" and download_type != "list":
     print "%s is not a valid download type" % download_type
     exit("Invalid download type, check your arguments")
 
-# 1: Check if download directory is free of excel files
-# If not, clear it by moving all excel files to the final_dir
-# Also move all .part files to the final dir
+# 1: Ensuring that download_dir exists and is clear
+# Ensure that final storage folder also exists
 download_path = readDownloadDir("download_dir.txt")
 final_path = download_path + "/" + target_gic
 checkMakeDir(final_path)
 
+# Check if download_path exists
 if download_path == "Invalid":
         print "Download path not found"
         exit("!Error: Invalid download directory")
 
+# If not, clear it by moving all excel files to the final_dir
+# Also move all .part files to the final dir
 while isDownloadDirClear(download_path) is False:
         print "Download dir %s is not clear" % (download_path)
         excel_files_moved = moveAllExcelFiles(download_path, final_path)
@@ -363,6 +384,9 @@ else:
     driver.quit()
     exit("Invalid download type. Check your arguments")
 
+
+# 5. Main loop, commence download
+# Iterate across files. Each file containing up to 10,000 firms
 failed_page_downloads = []
 sleep(15)
 print "Download list: %s" % (str(download_list))
@@ -372,13 +396,15 @@ for download_no in download_list:
 	print "=== File %d of %d ===" % (download_no, total_files)
         download_success = False
         download_attempts = 0
+
+	# The download will re-try until it succeeds or 
+	# the max attemps is exceed
         while download_success != True and download_attempts < 5:
             download_attempts += 1
             print "* Attempt #%d *" % (download_attempts)
 	    try:
 	        # Change to approriate page number
-	        if len(download_list) > 1:
-	    	    changePageNo(driver, download_no, screen_id)	
+	    	changePageNo(driver, download_no, screen_id)	
 
 		# Initiate download, allow max of 6 minutes for download to generate
 		min_wait_time = 10
@@ -401,10 +427,11 @@ for download_no in download_list:
 		# Rename to download file accordingly
 		renameMassFile(download_path, filename, target_gic,download_no, total_files)
 
-		# If all goes well, mark as successful
+		# If the above code executes without exceptions, then flag the download as successful
+		# This flag is required to exit the download loop
 		download_success = True
 
-	    #If exception, return to screening page, try next page
+	    #If exception, return to screening page
 	    except(TimeoutException, NoSuchElementException,\
 	       UnexpectedAlertPresentException,StaleElementReferenceException) as exception_type:
 	        print "!Exception of type", str(exception_type), "encountered"
