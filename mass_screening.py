@@ -269,10 +269,18 @@ def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 
 # 0: Program starts
 # Check if there are enough arguments passed in
+if(argv[1] == "--help"):
+	print "Help for Capital IQ mass screening downloader"
+	print ""
+	print "Format: python mass_screening.py <GIC_CODE> <TEMPLATE_NO> <DOWNLOAD_TYPE> [FILE_NO]"
+	print "DOWNLOAD_TYPE: all list"
+	exit()
+
 print "********** Capital IQ mass screening downloader *********"
 if (len(argv) < 3):
 	print "Format: python mass_screening.py <GIC_CODE> <TEMPLATE_NO> <DOWNLOAD_TYPE> [FILE_NO]"
-	exit("Insufficient arguments")
+	print "DOWNLOAD_TYPE: all list"
+	exit("!Error: Insufficient arguments")
 
 # Parse arguments in program variables, check if they are valid
 target_gic = argv[1]
@@ -280,7 +288,7 @@ template_no = argv[2]
 download_type = argv[3]
 if download_type != "all" and download_type != "list":
     print "%s is not a valid download type" % download_type
-    exit("Invalid download type, check your arguments")
+    exit("!Error: Invalid download type, check your arguments")
 
 # 1: Ensuring that download_dir exists and is clear
 # Ensure that final storage folder also exists

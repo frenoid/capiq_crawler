@@ -263,6 +263,13 @@ def subQuery(driver, batch_no, company_names_info, no_of_splits, download_id, do
 
 	return success, failed_ids 
 
+# 0: Print argument syntax if --help if specified
+if(argv[1] == "--help"):
+	print "Help for Capital IQ report builder downloader"
+	print ""
+	print "Syntax: python capiq_report.py <FILE_OF_IDS> <{customer/supplier/corporate_tree}> <BATCH_SIZE> <BATCH_TYPE> [LIST_OF_BATCH_NO]"
+	print "BATCH_TYPE : all list sub"
+	exit()
 
 # 1: Check if there are enough arguments and if download directory is free of .xlsx files
 download_path = readDownloadDir("C:/Selenium/capitaliq/download_dir.txt")
@@ -272,12 +279,13 @@ if download_path == "Invalid":
 
 if (len(argv) < 5):
 	print "%d arguments. Minimum is 4" % (len(argv)-1)
-	print "Arguments: <file_of_ids> <{customer/supplier/corporateT}] " +\
-	      "<query_size> <start_batch> [end_batch]"
+	print "Args: <FILE_OF_IDS> <{customer/supplier/corporate_tree}> <BATCH_SIZE> <BATCH_TYPE> [LIST_OF_BATCH_NO]"
+	print "BATCH_TYPE : all list sub"
+
 	exit()
 
 if isDownloadDirClear(download_path) is False:
-	exit("Download dir is not clear. Remove all .xls and .xlsx files")
+	exit("!Error: Download dir is not clear. Remove all .xls and .xlsx files")
 
 # 2: Set report type
 report_type = argv[2]
