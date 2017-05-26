@@ -69,7 +69,7 @@ def getScreeningRelations(download_folder, relations):
         try:
             total_no_files = int(filter(lambda x: x.isdigit(), raw_files[0][-6:-4]))
         except IndexError:
-            print "* No files found in %s" % gic_folder
+            print "* %s is empty" % gic_folder
             continue
 
         # print "%s should have %d files" % (gic_folder, total_no_files)
