@@ -18,7 +18,7 @@ from os import chdir, remove, rename, listdir
 from shutil import copy
 from math import ceil
 from capIqNavigate import getReportType, capiqInitialize, capiqLogin, getValidFirmCount, addFirms, generateReport, capiqLogout
-from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles, readDownloadDir
+from capIqLibrary import createDummyFile, getDownloadName, getBatchList, isDownloadDirClear, moveAllExcelFiles, moveAllPartialFiles, readDownloadDir, checkMakeDir
 from capIqAppendSubqueries import appendSubqueries
 from random import shuffle
 
@@ -272,7 +272,7 @@ if download_path == "Invalid":
 
 if (len(argv) < 5):
 	print "%d arguments. Minimum is 4" % (len(argv)-1)
-	print "Arguments: <file_of_ids> <{customer/supplier}] " +\
+	print "Arguments: <file_of_ids> <{customer/supplier/corporateT}] " +\
 	      "<query_size> <start_batch> [end_batch]"
 	exit()
 
@@ -290,6 +290,10 @@ firm_list = []
 for company in company_names_info:
 	firm_list.append(company_names_info[company][0])
 firm_list.sort()
+
+# 3a: Ensure the storage dir exists, if not create it
+final_path = download_path +"/"+ code_name 
+checkMakeDir(final_path)
 
 batch_size  = int(argv[3])
 download_list = getDownloadList(company_names_info, argv)
@@ -419,7 +423,6 @@ for batch_no in download_list:
 
 	finally:
 		# Moving excel files to classification folder
-		final_path = download_path +"/"+ code_name 
 		excel_files_moved = moveAllExcelFiles(download_path, final_path)
 		print "%d excel files were moved to %s" % (excel_files_moved, final_path)
 		partial_files_moved = moveAllPartialFiles(download_path, final_path)
