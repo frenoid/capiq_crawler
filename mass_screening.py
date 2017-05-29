@@ -267,9 +267,11 @@ def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 	
 	return rename_success, final_name
 
+# This function reads a designated config file and gets username,password, and download_dir
+# The info is delimited by ;
 def readConfigFile(config_file):
 
-	important_info = open("important_info.txt","r")
+	important_info = open(config_file,"r")
 	for info in important_info:
 		list_info = info.split(";")
 		username = list_info[0]
