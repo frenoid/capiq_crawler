@@ -4,14 +4,9 @@ import xlrd
 from os import listdir, chdir, getcwd, mkdir
 from shutil import move, copy
 
-# Reads the download_dir path from .txt file
-# Then checks if the path exists, then return whether it is a valid/invalid path
-def readDownloadDir(config_path):
+# This function checks if the download_path exist and returns download_path
+def readDownloadDir(download_path):
 	current_dir = getcwd()
-	download_path = "Invalid"
-
-	with open(config_path) as f:
-		download_path = f.readline().rstrip("\n")
 
 	try:
 		chdir(download_path)

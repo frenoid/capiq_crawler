@@ -267,8 +267,18 @@ def renameMassFile(download_path, download_name, gic_code, page_no, page_total):
 	
 	return rename_success, final_name
 
-# 0: Program starts
-# Check if there are enough arguments passed in
+def readConfigFile(config_file):
+
+	important_info = open("important_info.txt","r")
+	for info in important_info:
+		list_info = info.split(";")
+		username = list_info[0]
+		password = list_info[1]
+		download_dir = list_info[2]
+
+	return username, password, download_dir
+
+# This is a help function
 if(argv[1] == "--help"):
 	print "Help for Capital IQ mass screening downloader"
 	print ""
@@ -276,7 +286,18 @@ if(argv[1] == "--help"):
 	print "DOWNLOAD_TYPE: all list"
 	exit()
 
+# 0: Program starts
 print "********** Capital IQ mass screening downloader *********"
+
+
+# Get login details from file
+config_file  = "important_info.txt"
+print "Reading config file:", config_file
+username, password, download_dir = readConfigFile(config_file)
+print "userid: %s password %s download_dir %s"  % (username, password, download_dir)
+
+
+# Check if there are enough arguments passed in
 if (len(argv) < 3):
 	print "Format: python mass_screening.py <GIC_CODE> <TEMPLATE_NO> <DOWNLOAD_TYPE> [FILE_NO]"
 	print "DOWNLOAD_TYPE: all list"
@@ -292,7 +313,7 @@ if download_type != "all" and download_type != "list":
 
 # 1: Ensuring that download_dir exists and is clear
 # Ensure that final storage folder also exists
-download_path = readDownloadDir("download_dir.txt")
+download_path = readDownloadDir(download_dir)
 final_path = download_path + "/" + target_gic
 checkMakeDir(final_path)
 
@@ -327,7 +348,7 @@ while initiate_success != True and initiate_attempts < 5:
 		main_window = driver.current_window_handle
 		print "Capital IQ website loaded"
 		print "Login attempt #%d" % (login_attempts)
-		driver, login_success = capiqLogin(driver, "davinchor@nus.edu.sg", "GPNm0nster")
+		driver, login_success = capiqLogin(driver, username, password)
 
 		if login_success is False:
 			print "Close browser. Wait one minute"
