@@ -212,7 +212,7 @@ def changePageNo(driver, download_no, screen_id):
         current_page = getPageNo(driver)
 
         # Get expected page no
-        page_no = int(floor(float(download_no)/float(6)) + 1)
+        page_no = int(ceil(float(download_no)/float(5)))
 
         # Compare current page to expected page_no
         # If not the same, change page
