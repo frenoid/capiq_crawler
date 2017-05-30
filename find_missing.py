@@ -4,7 +4,7 @@ from capIqLibrary import findMissing
 
 # Finds missing batch numbers for the following download types:
 # Customers, Suppliers, Corporate Tree
-def getReportRelations(download_folder, relations, last_batch):
+def getMissingReportRelations(download_folder, relations, last_batch):
     customers_missing, suppliers_missing = [], []
 
     try:
@@ -13,7 +13,6 @@ def getReportRelations(download_folder, relations, last_batch):
     except WindowsError:
 	print "%s is an invalid download folder" % (download_folder)
         return  customers_missing, suppliers_missing
-
 
     print ""
     print "*** Find missing batch no in Cap IQ rawfiles ***"
@@ -45,7 +44,7 @@ def getReportRelations(download_folder, relations, last_batch):
         return corptree_missing
 
 # Find missing files for downloads from Capital IQ's Company Screening function
-def getScreeningRelations(download_folder, relations):
+def getMissingScreeningRelations(download_folder, relations):
     missing_files = []
 
     # Check if the download_dir exists
@@ -118,7 +117,7 @@ if __name__ == "__main__":
         getMissingReportRelations(download_folder, relations, last_batch)
         
     elif relations  == "screening":
-        getScreeningRelations(download_folder, relations)
+        getMissingScreeningRelations(download_folder, relations)
         
 
 
