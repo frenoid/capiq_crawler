@@ -4,11 +4,16 @@ from capIqLibrary import findMissing
 
 # Finds missing batch numbers for the following download types:
 # Customers, Suppliers, Corporate Tree
-def getReportRelations(download_folder, relations):
-    last_batch = int(argv[3])
-    chdir(download_folder)
-    downloaded_files = sorted(listdir(download_folder))
+def getReportRelations(download_folder, relations, last_batch):
     customers_missing, suppliers_missing = [], []
+
+    try:
+    	chdir(download_folder)
+    	downloaded_files = sorted(listdir(download_folder))
+    except WindowsError:
+	print "%s is an invalid download folder" % (download_folder)
+        return  customers_missing, suppliers_missing
+
 
     print ""
     print "*** Find missing batch no in Cap IQ rawfiles ***"
@@ -41,10 +46,17 @@ def getReportRelations(download_folder, relations):
 
 # Find missing files for downloads from Capital IQ's Company Screening function
 def getScreeningRelations(download_folder, relations):
-    chdir(download_folder)
-    gic_code_folders = listdir(download_folder)
-    gic_code_folders = sorted(gic_code_folders)
     missing_files = []
+
+    # Check if the download_dir exists
+    try:
+    	chdir(download_folder)
+    except WindowsError:
+	print "%s is an invalid directory" % (download_folder)
+	return missing_files
+
+    # Get the list of GIC code folders
+    gic_code_folders = sorted(listdir(download_folder))
 
     # Check if the download folders exist and that there are 157 of them
     if gic_code_folders is None:
@@ -102,7 +114,8 @@ if __name__ == "__main__":
     relations = argv[2]
 
     if relations == "all" or relations == "customers" or relations == "suppliers" or relations == "corporateT":
-        getMissingReportRelations(download_folder, relations)
+    	last_batch = int(argv[3])
+        getMissingReportRelations(download_folder, relations, last_batch)
         
     elif relations  == "screening":
         getScreeningRelations(download_folder, relations)
