@@ -77,21 +77,21 @@ def setGicFilter(driver, gic_code):
 	sleep(1)
 	# screening_search.send_keys(Keys.ENTER)
 
-	# Click on the first result, 
-        # Communications Equipment and Electronic Components chooses the second result
 	sleep(5)
-        if gic_code == "Communications Equipment" or gic_code == "Electronic Components":
-            print "%s -> Select second search result" % (gic_code)
-            sub_search = WebDriverWait(driver,15).until(
-		         EC.presence_of_element_located((By.XPATH,\
-                         "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[2]/div[2]/a/div[1]/span/b/span"))
-		         )
 
-        else:
-	    sub_search = WebDriverWait(driver,15).until(
-		         EC.presence_of_element_located((By.XPATH,\
-                         "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[1]/div[2]/a"))
-		         )
+	# Iterate through the results
+	# Pick the one that matches out GIC Code + "Company Details > Industry Classifications"
+	for result_no in range(1, 100):
+		sub_search = WebDriverWait(driver,15).until(
+		             EC.presence_of_element_located((By.XPATH,\
+		     	     "/html/body/table/tbody/tr[2]/td[4]/div/form/div[3]/table/tbody/tr/td/table[1]/tbody/tr/td/div/span/div/div[" + str(result_no) + "]"
+		     	     ))
+		     	     )
+		key_string = gic_code + "\n" + "Company Details > Industry Classifications"
+		print "Result", str(result_no) + ":" + sub_search.text
+		if sub_search.text == key_string:
+			print "Match!"
+			break
 	sub_search.click()
 
         # Choose primary code only
